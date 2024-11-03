@@ -1,6 +1,24 @@
 #include <stdio.h>
+#include <stdlib.h>
 
 typedef unsigned long long int U64;
+
+int get_bit(int pos, int number) {
+    return 1 & (number>>pos);
+}
+
+int set_bit(int pos, int number, int new_bit) {
+    if(new_bit) {
+    return (1<<pos) | number;
+    } else {
+        return (number & (~(1 << (pos))));
+    }
+}
+
+int toggle_bit(int pos, int number) {
+    return (number ^ (1 << (pos)));
+}
+
 
 typedef struct BOARD {
     U64 WHITE;
@@ -31,6 +49,8 @@ board_t * init_board() {
 int main() {
 
     board_t * the_board = init_board();
+
+    printf("\n%d",get_bit(0,5));
 
     return 0;
 }
