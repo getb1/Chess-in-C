@@ -1,7 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 
 typedef unsigned long long int U64;
+
+#define BOARD_SIZE 64
 
 int get_bit(int pos, int number) {
     return 1 & (number>>pos);
@@ -19,7 +22,7 @@ int toggle_bit(int pos, int number) {
     return (number ^ (1 << (pos)));
 }
 
-
+/* Defnition of the boar type and its relating funcions */
 typedef struct BOARD {
     U64 WHITE;
     U64 BLACK;
@@ -40,17 +43,39 @@ board_t * init_board() {
     new->PAWNS = 0x00ff00000000ff00;
     new->ROOKS = 0x8100000000000081;
     new->KNIGHTS=0x4200000000000042;
+    new->BISHOPS=0x2400000000000024;
     new->QUEENS =0x1000000000000010;
     new->KINGS = 0x0800000000000008;
 
     return new;
 }
 
+char get_piece_at_square(board_t * board, int square) {
+
+    int boards[6] = {board->PAWNS, board->ROOKS, board->KNIGHTS, board->BISHOPS, board->QUEENS, board->KINGS};
+    
+    char characters[6] = "prnbqk";
+    char to_return;
+
+    for(int i=0;i<BOARD_SIZE;++i) {
+        
+        if(get_bit(square,boards[i])) {
+            to_return = characters[i];
+            
+            break;
+        }
+    }
+    
+    to_return = get_bit(square, board->WHITE) ? toupper(to_return) : to_return;
+    return to_return;
+
+}
+
 int main() {
 
     board_t * the_board = init_board();
 
-    printf("\n%d",get_bit(0,5));
-
+    printf("\n%c",get_piece_at_square(the_board, 1));
+    
     return 0;
 }
