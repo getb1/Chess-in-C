@@ -50,6 +50,10 @@ board_t * init_board() {
     return new;
 }
 
+int coordinates_to_number(int row, int col) {
+    return (8*row)+col;
+}
+
 char get_piece_at_square(board_t * board, int square) {
 
     int boards[6] = {board->PAWNS, board->ROOKS, board->KNIGHTS, board->BISHOPS, board->QUEENS, board->KINGS};
@@ -71,11 +75,34 @@ char get_piece_at_square(board_t * board, int square) {
 
 }
 
+void display_board(board_t * board) {
+    for(int i=0;i<17;++i) {
+        printf("-");
+    }
+    
+    for(int i=0;i<8;++i) {
+        printf("\n|");
+
+        for(int j=0;j<8;++j) {
+            char piece = get_piece_at_square(board,coordinates_to_number(i,j));
+            
+            printf("%c|",piece);
+        }
+    }
+    printf("\n");
+    for(int i=0;i<17;++i) {
+        printf("-");
+    }
+
+}
+
 int main() {
 
     board_t * the_board = init_board();
 
-    printf("\n%c",get_piece_at_square(the_board, 1));
+    //printf("%c",get_piece_at_square(the_board, 40));
+    printf("%d",get_bit(the_board->ROOKS, 56));
+    //display_board(the_board);
     
     return 0;
 }
