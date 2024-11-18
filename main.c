@@ -55,24 +55,26 @@ int coordinates_to_number(int row, int col) {
 }
 
 char get_piece_at_square(board_t * board, int square) {
+    U64 boards[] = {board->PAWNS, board->ROOKS, board->KNIGHTS, board->BISHOPS, board->QUEENS, board->KINGS};
+    char characters[] = "prnbqk";
+    char to_return = '.';  // Default to empty square
 
-    int boards[6] = {board->PAWNS, board->ROOKS, board->KNIGHTS, board->BISHOPS, board->QUEENS, board->KINGS};
-    
-    char characters[6] = "prnbqk";
-    char to_return;
+    U64 mask = 1ULL << square;
 
-    for(int i=0;i<BOARD_SIZE;++i) {
-        
-        if(get_bit(square,boards[i])) {
+    for(int i = 0; i < 6; ++i) {
+        if(boards[i] & mask) {
             to_return = characters[i];
-            
             break;
         }
     }
-    
-    to_return = get_bit(square, board->WHITE) ? toupper(to_return) : to_return;
-    return to_return;
 
+    if (to_return != '.') {
+        if (board->WHITE & mask) {
+            to_return = toupper(to_return);
+        }
+    }
+
+    return to_return;
 }
 
 void display_board(board_t * board) {
@@ -101,8 +103,8 @@ int main() {
     board_t * the_board = init_board();
 
     //printf("%c",get_piece_at_square(the_board, 40));
-    printf("%d",get_bit(the_board->ROOKS, 56));
-    //display_board(the_board);
+    //printf("%d",get_bit(the_board->ROOKS, 56));
+    display_board(the_board);
     
     return 0;
 }
