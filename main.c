@@ -2,6 +2,10 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
+
+
+
+
 typedef unsigned long long int U64;
 
 #define BOARD_SIZE 64
@@ -106,6 +110,7 @@ void display_board(board_t * board) {
 
 
 board_t * init_from_FEN(char fen[]) {
+    printf("HELLO");
     board_t * board = NULL;
     board = (board_t *) malloc(sizeof(board_t));
     board->WHITE = 0x0000000000000000;
@@ -118,7 +123,7 @@ board_t * init_from_FEN(char fen[]) {
     board->KINGS = 0x0000000000000000;
     
     char * token = strtok(fen, " ");
-
+    printf("HELLO");
 
     char * pieces = token;
     token = strtok(NULL, " ");
@@ -135,45 +140,80 @@ board_t * init_from_FEN(char fen[]) {
     
     
 
-    token = strtok(pieces,"/");
     
+    int j=0;
+    int sqNum=-1;
     for(int i=0;i<8;++i) {
         int pos =0;
-        for(int j=0;j<sizeof(token);++i) {
-            if(isalpha(token[j])) {
-                int sq=coordinates_to_number(i,j+pos);
-                if(isupper(token[j])) {
-                    board->WHITE = set_bit(sq,board->WHITE, 1);
-                } else{
-                    board->BLACK = set_bit(sq,board->BLACK, 1);
-                }
+        
+        printf("HELLO");
+        (void) getc(stdin);
+        printf("%i",sqNum);
 
-                if(strncmp(tolower(token[j]),"p")) {
-                    board->PAWNS = set_bit(sq,board->PAWNS,1);
-                } else if(strncmp(tolower(token[j])=="r")) {
-                    board->ROOKS = set_bit(sq,board->PAWNS,1);
-                }
+        while (pieces[j] !='/'&&pieces[j]!='\0'){
+            if(isdigit(pieces[j])) {
+                pos = pos + (pieces[j]-'0');
                 
-
+            } else {
+                sqNum = coordinates_to_number(i,pos);
+            if(isupper(pieces[j])) {
+                
+                
+                board->WHITE = set_bit(sqNum, board->WHITE, 1);
+            } else{
+                board->BLACK = set_bit(sqNum, board->BLACK, 1);
             }
+            printf("%c", pieces[j]);
+            switch (tolower(pieces[j]))
+            {
+            case 'p':
+                board->PAWNS = set_bit(sqNum, board->PAWNS, 1);
+                break;
+            case 'r':
+                board->ROOKS = set_bit(sqNum, board->ROOKS, 1);
+                break;
+            case 'n':
+                board->KNIGHTS = set_bit(sqNum, board->KNIGHTS, 1);
+                printf("%lld", board->KNIGHTS);
+                break;
+            case 'b':
+                board->BISHOPS = set_bit(sqNum, board->BISHOPS, 1);
+                break;
+            case 'q':
+                board->QUEENS = set_bit(sqNum, board->QUEENS, 1);
+                break;
+            case 'k':
+                board->KINGS = set_bit(sqNum, board->KINGS, 1);
+                break;
+            default:
+                break;
+            }
+        
         }
-        token =(NULL,"/");
-    }
-
+        j++;
+        pos++;
+        }
+        
 
     display_board(board);
-}
+    j++;
+    
+}return board;}
 
 
 
 
 
 int main() {
-
-    board_t * the_board = init_board();
+    printf("HELLO");
+    (void) getc(stdin);
+    //board_t * the_board = init_board();
+    printf("HELLO");
+    (void) getc(stdin);
     char fen[] = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     
     init_from_FEN(fen);
-    
+    printf("HELLO");
+    (void) getc(stdin);
     return 0;
 }
