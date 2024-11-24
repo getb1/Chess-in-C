@@ -45,7 +45,7 @@ typedef struct BOARD {
     int moves;
     int turn;
     int halfMoveCLock;
-    int castleFlags;
+    int castleFlags; // 4 bit number 1111 where bits 0 and 1 are black QK and same for white
 } board_t;
 
 board_t * init_board() {
@@ -88,6 +88,7 @@ char get_piece_at_square(board_t * board, int square) {
 }
 
 void display_board(board_t * board) {
+    printf("\n");
     for(int i=0;i<17;++i) {
         printf("-");
     }
@@ -110,21 +111,21 @@ void display_board(board_t * board) {
 
 
 board_t * init_from_FEN(char fen[]) {
-    printf("HELLO");
+    
     board_t * board = NULL;
     board = (board_t *) malloc(sizeof(board_t));
-    board->WHITE = 0x0000000000000000;
-    board->BLACK = 0x0000000000000000;
-    board->BISHOPS = 0x0000000000000000;
-    board->PAWNS = 0x0000000000000000;
-    board->ROOKS = 0x0000000000000000;
-    board->KNIGHTS = 0x0000000000000000;
-    board->QUEENS = 0x0000000000000000;
-    board->KINGS = 0x0000000000000000;
+    board->WHITE = 0ULL;
+    board->BLACK = 0ULL;
+    board->BISHOPS = 0ULL;
+    board->PAWNS = 0ULL;
+    board->ROOKS = 0ULL;
+    board->KNIGHTS = 0ULL;
+    board->QUEENS = 0ULL;
+    board->KINGS = 0ULL;
     
     char * token = strtok(fen, " ");
-    printf("HELLO");
-
+    
+    // Split the string into individual parts for parsing
     char * pieces = token;
     token = strtok(NULL, " ");
     char * turn = token;
@@ -137,83 +138,57 @@ board_t * init_from_FEN(char fen[]) {
     token = strtok(NULL, " ");
     char * moves = token;
     
-    
-    
 
-    
-    int j=0;
-    int sqNum=-1;
-    for(int i=0;i<8;++i) {
-        int pos =0;
-        
-        printf("HELLO");
-        (void) getc(stdin);
-        printf("%i",sqNum);
+    int rank=0, file=0;
 
-        while (pieces[j] !='/'&&pieces[j]!='\0'){
-            if(isdigit(pieces[j])) {
-                pos = pos + (pieces[j]-'0');
-                
+    for(int i=0; pieces[i]!='\0' && pieces[i]!= ' '; ++i) {
+        if(pieces[i]=='/') {
+            rank++;
+            file=0;
+        } else if(isdigit(pieces[i])) {
+            file+= pieces[i]-'0';
+        } else {
+            int sqNum = rank*8+file;
+            U64 mask = 1ULL << sqNum;
+
+            if(isupper(pieces[i])) {
+                board->WHITE|=mask;
             } else {
-                sqNum = coordinates_to_number(i,pos);
-            if(isupper(pieces[j])) {
-                
-                
-                board->WHITE = set_bit(sqNum, board->WHITE, 1);
-            } else{
-                board->BLACK = set_bit(sqNum, board->BLACK, 1);
+                board->BLACK|=mask;
             }
-            printf("%c", pieces[j]);
-            switch (tolower(pieces[j]))
-            {
-            case 'p':
-                board->PAWNS = set_bit(sqNum, board->PAWNS, 1);
-                break;
-            case 'r':
-                board->ROOKS = set_bit(sqNum, board->ROOKS, 1);
-                break;
-            case 'n':
-                board->KNIGHTS = set_bit(sqNum, board->KNIGHTS, 1);
-                printf("%lld", board->KNIGHTS);
-                break;
-            case 'b':
-                board->BISHOPS = set_bit(sqNum, board->BISHOPS, 1);
-                break;
-            case 'q':
-                board->QUEENS = set_bit(sqNum, board->QUEENS, 1);
-                break;
-            case 'k':
-                board->KINGS = set_bit(sqNum, board->KINGS, 1);
-                break;
-            default:
-                break;
-            }
-        
-        }
-        j++;
-        pos++;
-        }
-        
 
-    display_board(board);
-    j++;
-    
-}return board;}
+            switch (tolower(pieces[i])) {
+             case 'p': board->PAWNS |=mask; break;
+             case 'r': board->ROOKS |=mask; break;
+             case 'n': board->KNIGHTS |=mask; break;
+             case 'b': board->BISHOPS |=mask; break;
+             case 'q': board->QUEENS |=mask; break;
+             case 'k': board->KINGS |=mask; break;
+            }
+            file++;
+        }
+
+    }
+
+    board->turn=turn-'0';
+    if(strchr(castle, "K")!=NULL) {
+        
+    }
+
+display_board(board);
+return board;}
 
 
 
 
 
 int main() {
-    printf("HELLO");
-    (void) getc(stdin);
+    
     //board_t * the_board = init_board();
-    printf("HELLO");
-    (void) getc(stdin);
+    
     char fen[] = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     
     init_from_FEN(fen);
-    printf("HELLO");
-    (void) getc(stdin);
+    
     return 0;
 }
