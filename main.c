@@ -109,6 +109,26 @@ void display_board(board_t * board) {
 
 }
 
+int turn_to_int(char turn) {
+    return (turn =='w'|| turn=='W') ? 1:0;
+}
+
+int char_to_intsq(char sq[]) {
+    char file = sq[0];
+    char rank = sq[1];
+
+    char files[] = "hgfedcba";
+    int iRank = rank-'1';
+    int iFIle;
+    for(int i=0;i<8;++i) {
+        if(files[i]==files) {
+            iFIle=i;
+            break;
+        }
+    }
+
+    return  (iRank*8)+iFIle;
+}
 
 board_t * init_from_FEN(char fen[]) {
     
@@ -122,7 +142,7 @@ board_t * init_from_FEN(char fen[]) {
     board->KNIGHTS = 0ULL;
     board->QUEENS = 0ULL;
     board->KINGS = 0ULL;
-    
+    //board->turn = 0;
     char * token = strtok(fen, " ");
     
     // Split the string into individual parts for parsing
@@ -170,11 +190,18 @@ board_t * init_from_FEN(char fen[]) {
 
     }
 
-    board->turn=turn-'0';
-    if(strchr(castle, "K")!=NULL) {
-        
-    }
+    board->turn = turn_to_int(turn[0]);
 
+    int bits[4] = {0,1,2,3};
+    char symbols[] = "qkQK";
+
+    for(int i=0;i<4;i++) {
+        if(strchr(castle, symbols[i])) {
+        board->castleFlags = set_bit(i, board->castleFlags, 1);}
+    }
+    
+    printf("%i", board->castleFlags);
+    printf("%i",board->turn);
 display_board(board);
 return board;}
 
