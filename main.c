@@ -52,8 +52,8 @@ board_t * init_board() {
     board_t * new = NULL;
     new = (board_t *) malloc(sizeof(board_t));
 
-    new->WHITE = 0xffff000000000000;
-    new->BLACK = 0x000000000000ffff;
+    new->WHITE = 0x000000000000ffff;
+    new->BLACK = 0xffff000000000000;
     new->PAWNS = 0x00ff00000000ff00;
     new->ROOKS = 0x8100000000000081;
     new->KNIGHTS=0x4200000000000042;
@@ -93,10 +93,10 @@ void display_board(board_t * board) {
         printf("-");
     }
     
-    for(int i=0;i<8;++i) {
+    for(int i=8;i>=0;--i) {
         printf("\n|");
 
-        for(int j=0;j<8;++j) {
+        for(int j=7;j>=0;--j) {
             char piece = get_piece_at_square(board,coordinates_to_number(i,j));
             
             printf("%c|",piece);
@@ -114,20 +114,15 @@ int turn_to_int(char turn) {
 }
 
 int char_to_intsq(char sq[]) {
-    char file = sq[0];
-    char rank = sq[1];
 
-    char files[] = "hgfedcba";
-    int iRank = rank-'1';
-    int iFIle;
-    for(int i=0;i<8;++i) {
-        if(files[i]==files) {
-            iFIle=i;
-            break;
-        }
-    }
+    if(strlen(sq)!=2) {return -1;}
 
-    return  (iRank*8)+iFIle;
+    int file=sq[0]-'a';
+    int rank=8-(sq[1]-'0');
+
+    if(file<0||file>7 || rank<0||rank>7) {return -1;}
+
+    return rank*8 + file;
 }
 
 board_t * init_from_FEN(char fen[]) {
@@ -142,7 +137,8 @@ board_t * init_from_FEN(char fen[]) {
     board->KNIGHTS = 0ULL;
     board->QUEENS = 0ULL;
     board->KINGS = 0ULL;
-    //board->turn = 0;
+    board->enPassantsq=-1;
+
     char * token = strtok(fen, " ");
     
     // Split the string into individual parts for parsing
@@ -158,25 +154,27 @@ board_t * init_from_FEN(char fen[]) {
     token = strtok(NULL, " ");
     char * moves = token;
     
-
-    int rank=0, file=0;
+    // loop through the pieces in the fen and add them to the board
+    int rank=7, file=0;
 
     for(int i=0; pieces[i]!='\0' && pieces[i]!= ' '; ++i) {
         if(pieces[i]=='/') {
-            rank++;
-            file=0;
+            rank--;
+            file=0; // if the piece is a slash then we can move down to the next rank in the baord
+                    // and return to the first square in it
         } else if(isdigit(pieces[i])) {
             file+= pieces[i]-'0';
         } else {
-            int sqNum = rank*8+file;
+            int sqNum = (7-file)+8*rank; // locate where the piece should go on the board
             U64 mask = 1ULL << sqNum;
 
+            // add the piece to the correct colour board depending on its capitalisation 
             if(isupper(pieces[i])) {
                 board->WHITE|=mask;
             } else {
                 board->BLACK|=mask;
             }
-
+            // place the piece onto the correct board
             switch (tolower(pieces[i])) {
              case 'p': board->PAWNS |=mask; break;
              case 'r': board->ROOKS |=mask; break;
@@ -191,7 +189,7 @@ board_t * init_from_FEN(char fen[]) {
     }
 
     board->turn = turn_to_int(turn[0]);
-
+    // choose the correct turn depending on the charachter and add correct castle flags
     int bits[4] = {0,1,2,3};
     char symbols[] = "qkQK";
 
@@ -199,11 +197,13 @@ board_t * init_from_FEN(char fen[]) {
         if(strchr(castle, symbols[i])) {
         board->castleFlags = set_bit(i, board->castleFlags, 1);}
     }
-    
-    printf("%i", board->castleFlags);
-    printf("%i",board->turn);
-display_board(board);
-return board;}
+    // add the rst of the data to the board structure
+    board->enPassantsq=char_to_intsq(enpass);
+    board->halfMoveCLock = *halfmove_clock-'0';
+    board->moves = *moves-'0';
+
+    return board;
+}
 
 
 
@@ -211,8 +211,9 @@ return board;}
 
 int main() {
     
-    //board_t * the_board = init_board();
-    
+    board_t * the_board = init_board();
+    display_board(the_board);
+
     char fen[] = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     
     init_from_FEN(fen);
