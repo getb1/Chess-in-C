@@ -2,16 +2,25 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
-
-
+#include <stdint.h>
 
 
 typedef unsigned long long int U64;
+typedef __uint64_t hash_t;
+
 
 #define BOARD_SIZE 64
 
 int get_bit(int pos, int number) {
     return 1 & (number>>pos);
+}
+
+uint64_t rand64(void) {
+  uint64_t r = 0;
+  for (int i=0; i<64; i += 15 /*30*/) {
+    r = r*((uint64_t)RAND_MAX + 1) + rand();
+  }
+  return r;
 }
 
 int set_bit(int pos, int number, int new_bit) {
@@ -31,7 +40,15 @@ int coordinates_to_number(int row, int col) {
 }
 
 /* Defnition of the boar type and its relating funcions */
+
+typedef struct Move {
+    int from;
+    int to;
+    int piece;
+}move_t;
+
 typedef struct BOARD {
+    //bitboards
     U64 WHITE;
     U64 BLACK;
     U64 PAWNS;
@@ -40,13 +57,32 @@ typedef struct BOARD {
     U64 BISHOPS;
     U64 QUEENS;
     U64 KINGS;
-
+    // other data
     int enPassantsq;
     int moves;
     int turn;
     int halfMoveCLock;
     int castleFlags; // 4 bit number 1111 where bits 0 and 1 are black QK and same for white
+    hash_t zorbist_table[8][64];
+    hash_t zorbist_hash;
 } board_t;
+
+void init_zorbisttable(board_t * BOARD) {
+    hash_t new_table[8][64];
+    for(int piece=0; piece<8;piece++) {
+        for(int sq=0;sq<64;++sq) {
+            new_table[piece][sq] = rand64();
+        }
+    }
+    //BOARD->zorbist_table=new_table;
+}
+
+hash_t update_hash(move_t * move, hash_t hash, hash_t table[8][64]) {
+    hash ^= table[move->piece][move->from];
+    hash ^= table[move->piece][move->to];
+
+    return hash;
+}
 
 board_t * init_board() {
     board_t * new = NULL;
@@ -60,7 +96,8 @@ board_t * init_board() {
     new->BISHOPS=0x2400000000000024;
     new->QUEENS =0x1000000000000010;
     new->KINGS = 0x0800000000000008;
-
+    //init_zorbisttable(new);
+    new->zorbist_hash = 0;
     return new;
 }
 
@@ -129,6 +166,9 @@ board_t * init_from_FEN(char fen[]) {
     
     board_t * board = NULL;
     board = (board_t *) malloc(sizeof(board_t));
+
+
+    //board->zorbist_table = init_zorbisttable();
     board->WHITE = 0ULL;
     board->BLACK = 0ULL;
     board->BISHOPS = 0ULL;
@@ -205,9 +245,9 @@ board_t * init_from_FEN(char fen[]) {
     return board;
 }
 
+int zorbist_hash(board_t * board) {
 
-
-
+}
 
 int main() {
     
