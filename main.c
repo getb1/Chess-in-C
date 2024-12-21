@@ -40,7 +40,6 @@ int coordinates_to_number(int row, int col) {
 }
 
 /* Defnition of the boar type and its relating funcions */
-
 typedef struct Move {
     int from;
     int to;
@@ -65,9 +64,10 @@ typedef struct BOARD {
     int castleFlags; // 4 bit number 1111 where bits 0 and 1 are black QK and same for white
     hash_t* zorbist_table[8][64];
     hash_t zorbist_hash;
+    // Moves
+    U64 WHITE_PAWN_MOVES[64];
+    U64 BLACK_PAWN_MOVES[64];
 } board_t;
-
-
 
 board_t * init_board() {
     board_t * new = NULL;
@@ -248,13 +248,17 @@ U64 precomputePawnMove(int square, int direction) {
     move = set_bit(coordinates_to_number(rank+direction,file),move,1);
     printf("%d",move);
     return move;
-    
-
-
 }
 
+void precomputePawnMoves(board_t * board) {
+    U64 Wmoves[64] = {0ULL};
 
+    for(int i=0;i<64;++i) {
+        Wmoves[i] = precomputePawnMove(i,-1);
+    }
+    board->WHITE_PAWN_MOVES=Wmoves;
 
+}
 // Board Functions End Here
 int main() {
     
@@ -262,7 +266,7 @@ int main() {
     display_board(the_board);
     precomputePawnMove(12,-1);
     char fen[] = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-    
+    precomputePawnMoves(the_board);
     init_from_FEN(fen);
     
     return 0;
