@@ -86,6 +86,22 @@ board_t * init_board() {
     return new;
 }
 
+void display_bitBoard(U64 bitboard) {
+    int sq;
+    printf("\n");
+    for(int i=7;i>=0;--i) {
+        for(int j=7;j>=0;j--) {
+            sq = coordinates_to_number(i,j); 
+            if(get_bit(sq,bitboard)){
+                printf("*");
+            } else {
+                printf("·");
+            }
+        }
+        printf("\n");
+    }
+}
+
 char get_piece_at_square(board_t * board, int square) {
     U64 boards[] = {board->PAWNS, board->ROOKS, board->KNIGHTS, board->BISHOPS, board->QUEENS, board->KINGS};
     char characters[] = "prnbqk";
@@ -242,11 +258,11 @@ U64 precomputePawnMove(int square, int direction) {
 
     U64 move = 0ULL;
 
-    if(rank==base_rank){
+    if((direction==-1 && rank==1)||(direction==1&&rank==6)){
         move = set_bit(coordinates_to_number(rank+(2*direction),file),move,1);
     }
     move = set_bit(coordinates_to_number(rank+direction,file),move,1);
-    printf("%d",move);
+    
     return move;
 }
 
@@ -254,9 +270,10 @@ void precomputePawnMoves(board_t * board) {
     U64 Wmoves[64] = {0ULL};
 
     for(int i=0;i<64;++i) {
-        Wmoves[i] = precomputePawnMove(i,-1);
+        board->WHITE_PAWN_MOVES[i] = precomputePawnMove(i,-1);
+        
     }
-    board->WHITE_PAWN_MOVES=Wmoves;
+    
 
 }
 // Board Functions End Here
@@ -267,7 +284,7 @@ int main() {
     precomputePawnMove(12,-1);
     char fen[] = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     precomputePawnMoves(the_board);
-    init_from_FEN(fen);
-    
+    //init_from_FEN(fen);
+    display_bitBoard(the_board->WHITE_PAWN_MOVES[9]);
     return 0;
 }
