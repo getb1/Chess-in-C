@@ -63,26 +63,11 @@ typedef struct BOARD {
     int turn;
     int halfMoveCLock;
     int castleFlags; // 4 bit number 1111 where bits 0 and 1 are black QK and same for white
-    hash_t zorbist_table[8][64];
+    hash_t* zorbist_table[8][64];
     hash_t zorbist_hash;
 } board_t;
 
-void init_zorbisttable(board_t * BOARD) {
-    hash_t new_table[8][64];
-    for(int piece=0; piece<8;piece++) {
-        for(int sq=0;sq<64;++sq) {
-            new_table[piece][sq] = rand64();
-        }
-    }
-    //BOARD->zorbist_table=new_table;
-}
 
-hash_t update_hash(move_t * move, hash_t hash, hash_t table[8][64]) {
-    hash ^= table[move->piece][move->from];
-    hash ^= table[move->piece][move->to];
-
-    return hash;
-}
 
 board_t * init_board() {
     board_t * new = NULL;
@@ -245,15 +230,37 @@ board_t * init_from_FEN(char fen[]) {
     return board;
 }
 
-int zorbist_hash(board_t * board) {
+U64 precomputePawnMove(int square, int direction) {
+    int base_sqaure = (8+direction)%8;
+    int base_rank = base_sqaure/8;
+    int rank = square/8;
+    int file = square%8;
+
+    if(rank==0||rank==7) {
+        return 0ULL;
+    }
+
+    U64 move = 0ULL;
+
+    if(rank==base_rank){
+        move = set_bit(coordinates_to_number(rank+(2*direction),file),move,1);
+    }
+    move = set_bit(coordinates_to_number(rank+direction,file),move,1);
+    printf("%d",move);
+    return move;
+    
+
 
 }
 
+
+
+// Board Functions End Here
 int main() {
     
     board_t * the_board = init_board();
     display_board(the_board);
-
+    precomputePawnMove(12,-1);
     char fen[] = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     
     init_from_FEN(fen);
