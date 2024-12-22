@@ -15,7 +15,7 @@ int get_bit(int pos, U64 number) {
     return 1 & (number>>pos);
 }
 
-uint64_t rand64(void) {
+hash_t rand64(void) {
   uint64_t r = 0;
   for (int i=0; i<64; i += 15 /*30*/) {
     r = r*((uint64_t)RAND_MAX + 1) + rand();
@@ -59,28 +59,22 @@ typedef struct BOARD {
     int turn;
     int halfMoveCLock;
     int castleFlags; // 4 bit number 1111 where bits 0 and 1 are black QK and same for white
-    hash_t* zorbist_table[8][64];
+
+    hash_t zorbist_table[12][64];
+    hash_t zorbist_castle_table[4];
+    hash_t zorbist_en_passant[8];
+    hash_t zorbist_to_move;
     hash_t zorbist_hash;
     // Moves
     U64 WHITE_PAWN_MOVES[64];
     U64 BLACK_PAWN_MOVES[64];
 } board_t;
 
-board_t * init_board() {
-    board_t * new = NULL;
-    new = (board_t *) malloc(sizeof(board_t));
+hash_t update_board_hash(board_t* board, int update, move_t* move) {
+    hash_t hash=board->zorbist_hash;
 
-    new->WHITE = 0x000000000000ffff;
-    new->BLACK = 0xffff000000000000;
-    new->PAWNS = 0x00ff00000000ff00;
-    new->ROOKS = 0x8100000000000081;
-    new->KNIGHTS=0x4200000000000042;
-    new->BISHOPS=0x2400000000000024;
-    new->QUEENS =0x1000000000000010;
-    new->KINGS = 0x0800000000000008;
-    //init_zorbisttable(new);
-    new->zorbist_hash = 0;
-    return new;
+
+
 }
 
 void display_bitBoard(U64 bitboard) {
@@ -274,6 +268,60 @@ void precomputePawnMoves(board_t * board) {
         board->BLACK_PAWN_MOVES[i] = precomputePawnMove(i,-1);
     }
 }
+
+hash_t init_zorbisttable(board_t * board) {
+    for(int i=0;i<12;++i) {
+        for(int j=0;j<64;++j) {
+            board->zorbist_table[i][j]=rand64();
+        }
+    }
+    for(int i=0;i<4;++i) {
+        board->zorbist_castle_table[i]=rand64();
+    }
+    for(int i=0;i<8;++i) {
+        board->zorbist_en_passant[i]=rand64();
+    }
+    
+    hash_t hash = 0;
+    for(int i=0;i<2;++i){
+        
+        switch (get_piece_at_square(board,i)) {
+            case 'P' : hash ^= board->zorbist_table[0][i]; break;
+            case 'R' : hash ^= board->zorbist_table[1][i]; break;
+            case 'N' : hash ^= board->zorbist_table[2][i]; break;
+            case 'B' : hash ^= board->zorbist_table[3][i]; break;
+            case 'Q' : hash ^= board->zorbist_table[4][i]; break;
+            case 'K' : hash ^= board->zorbist_table[5][i]; break;
+            case 'p' : hash ^= board->zorbist_table[6][i]; break;
+            case 'r' : hash ^= board->zorbist_table[7][i]; break;
+            case 'n' : hash ^= board->zorbist_table[8][i]; break;
+            case 'b' : hash ^= board->zorbist_table[9][i]; break;
+            case 'q' : hash ^= board->zorbist_table[10][i]; break;
+            case 'k' : hash ^= board->zorbist_table[11][i]; break;
+            default : printf("HELLO"); break;
+        }
+            
+        
+    }
+    return hash;
+}
+
+board_t * init_board() {
+    board_t * new = NULL;
+    new = (board_t *) malloc(sizeof(board_t));
+
+    new->WHITE = 0x000000000000ffff;
+    new->BLACK = 0xffff000000000000;
+    new->PAWNS = 0x00ff00000000ff00;
+    new->ROOKS = 0x8100000000000081;
+    new->KNIGHTS=0x4200000000000042;
+    new->BISHOPS=0x2400000000000024;
+    new->QUEENS =0x1000000000000010;
+    new->KINGS = 0x0800000000000008;
+    new->zorbist_hash = init_zorbisttable(new);
+    precomputePawnMoves(new);
+    return new;
+}
 // Board Functions End Here
 int main() {
     
@@ -281,7 +329,7 @@ int main() {
     precomputePawnMove(12,-1);
     char fen[] = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     precomputePawnMoves(the_board);
-    display_bitBoard(the_board->BLACK_PAWN_MOVES[34]);
+    printf("\n%d",the_board->zorbist_hash);
     //init_from_FEN(fen);
     return 0;
 }
