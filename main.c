@@ -11,7 +11,7 @@ typedef __uint64_t hash_t;
 
 #define BOARD_SIZE 64
 
-int get_bit(int pos, int number) {
+int get_bit(int pos, U64 number) {
     return 1 & (number>>pos);
 }
 
@@ -23,20 +23,17 @@ uint64_t rand64(void) {
   return r;
 }
 
-int set_bit(int pos, int number, int new_bit) {
-    if(new_bit) {
-    return (1<<pos) | number;
-    } else {
-        return (number & (~(1 << (pos))));
-    }
+U64 set_bit(int pos, U64 number, int new_bit) {
+    return ((U64)1<<pos) | number;
+    
 }
 
-int toggle_bit(int pos, int number) {
+U64 toggle_bit(int pos, U64 number) {
     return (number ^ (1 << (pos)));
 }
 
-int coordinates_to_number(int row, int col) {
-    return (8*row)+col;
+int coordinates_to_number(int rank, int file) {
+    return (8*rank)+file;
 }
 
 /* Defnition of the boar type and its relating funcions */
@@ -89,13 +86,15 @@ board_t * init_board() {
 void display_bitBoard(U64 bitboard) {
     int sq;
     printf("\n");
+    printf("%u \n",bitboard);
     for(int i=7;i>=0;--i) {
         for(int j=7;j>=0;j--) {
             sq = coordinates_to_number(i,j); 
             if(get_bit(sq,bitboard)){
-                printf("*");
+                
+                printf("* ");
             } else {
-                printf("·");
+                printf("· ");
             }
         }
         printf("\n");
@@ -247,44 +246,42 @@ board_t * init_from_FEN(char fen[]) {
 }
 
 U64 precomputePawnMove(int square, int direction) {
-    int base_sqaure = (8+direction)%8;
-    int base_rank = base_sqaure/8;
     int rank = square/8;
     int file = square%8;
-
-    if(rank==0||rank==7) {
-        return 0ULL;
-    }
-
-    U64 move = 0ULL;
-
-    if((direction==-1 && rank==1)||(direction==1&&rank==6)){
-        move = set_bit(coordinates_to_number(rank+(2*direction),file),move,1);
-    }
-    move = set_bit(coordinates_to_number(rank+direction,file),move,1);
     
-    return move;
+    U64 move=0ULL;
+    if (rank!=7 && rank!=0) {
+        if(rank==6&&direction==-1) {
+            move = set_bit(coordinates_to_number(4,file),move,1);
+            return set_bit(coordinates_to_number(5,file),move,1);
+        } else if(rank==1&&direction==1) {
+            
+            move = set_bit(coordinates_to_number(3,file),move,1);
+            return set_bit(coordinates_to_number(2,file),move,1);
+        }
+        else {
+            return set_bit(coordinates_to_number(rank+direction,file),move,1);
+        }
+    }
+    
+    return 0ULL;
 }
 
 void precomputePawnMoves(board_t * board) {
-    U64 Wmoves[64] = {0ULL};
 
     for(int i=0;i<64;++i) {
-        board->WHITE_PAWN_MOVES[i] = precomputePawnMove(i,-1);
-        
+        board->WHITE_PAWN_MOVES[i] = precomputePawnMove(i,1);
+        board->BLACK_PAWN_MOVES[i] = precomputePawnMove(i,-1);
     }
-    
-
 }
 // Board Functions End Here
 int main() {
     
     board_t * the_board = init_board();
-    display_board(the_board);
     precomputePawnMove(12,-1);
     char fen[] = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     precomputePawnMoves(the_board);
+    display_bitBoard(the_board->BLACK_PAWN_MOVES[34]);
     //init_from_FEN(fen);
-    display_bitBoard(the_board->WHITE_PAWN_MOVES[9]);
     return 0;
 }
