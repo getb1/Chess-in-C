@@ -4,10 +4,8 @@
 #include <string.h>
 #include <stdint.h>
 
-
 typedef unsigned long long int U64;
 typedef __uint64_t hash_t;
-
 
 #define BOARD_SIZE 64
 
@@ -41,6 +39,7 @@ typedef struct Move {
     int from;
     int to;
     int piece;
+    int colour;
 }move_t;
 
 typedef struct BOARD {
@@ -69,13 +68,6 @@ typedef struct BOARD {
     U64 WHITE_PAWN_MOVES[64];
     U64 BLACK_PAWN_MOVES[64];
 } board_t;
-
-hash_t update_board_hash(board_t* board, int update, move_t* move) {
-    hash_t hash=board->zorbist_hash;
-
-
-
-}
 
 void display_bitBoard(U64 bitboard) {
     int sq;
@@ -154,6 +146,87 @@ int char_to_intsq(char sq[]) {
     if(file<0||file>7 || rank<0||rank>7) {return -1;}
 
     return rank*8 + file;
+}
+
+U64 precomputePawnMove(int square, int direction) {
+    int rank = square/8;
+    int file = square%8;
+    
+    U64 move=0ULL;
+    if (rank!=7 && rank!=0) {
+        if(rank==6&&direction==-1) {
+            move = set_bit(coordinates_to_number(4,file),move,1);
+            return set_bit(coordinates_to_number(5,file),move,1);
+        } else if(rank==1&&direction==1) {
+            
+            move = set_bit(coordinates_to_number(3,file),move,1);
+            return set_bit(coordinates_to_number(2,file),move,1);
+        }
+        else {
+            return set_bit(coordinates_to_number(rank+direction,file),move,1);
+        }
+    }
+    
+    return 0ULL;
+}
+
+void precomputePawnMoves(board_t * board) {
+
+    for(int i=0;i<64;++i) {
+        board->WHITE_PAWN_MOVES[i] = precomputePawnMove(i,1);
+        board->BLACK_PAWN_MOVES[i] = precomputePawnMove(i,-1);
+    }
+}
+
+hash_t get_hash_for_piece_at_square(board_t* board, int pos) {
+    switch (get_piece_at_square(board,pos)) {
+            case 'P' : return board->zorbist_table[0][pos]; break;
+            case 'R' : return board->zorbist_table[1][pos]; break;
+            case 'N' : return board->zorbist_table[2][pos]; break;
+            case 'B' : return board->zorbist_table[3][pos]; break;
+            case 'Q' : return board->zorbist_table[4][pos]; break;
+            case 'K' : return board->zorbist_table[5][pos]; break;
+            case 'p' : return board->zorbist_table[6][pos]; break;
+            case 'r' : return board->zorbist_table[7][pos]; break;
+            case 'n' : return board->zorbist_table[8][pos]; break;
+            case 'b' : return board->zorbist_table[9][pos]; break;
+            case 'q' : return board->zorbist_table[10][pos]; break;
+            case 'k' : return board->zorbist_table[11][pos]; break;
+            default : printf("HELLO"); break;
+        }
+}
+
+hash_t update_hash(board_t * board, move_t * move) {
+    int from = move->from;
+    int to = move->to;
+    int start = 0;
+    if(~(move->colour)) {
+        start=6;
+    }
+
+    board->zorbist_hash^=board->zorbist_table[start+move->piece][from];
+    board->zorbist_hash^=get_hash_for_piece_at_square(board,to);
+    return board->zorbist_hash;
+}
+
+hash_t init_zorbisttable(board_t * board) {
+    for(int i=0;i<12;++i) {
+        for(int j=0;j<64;++j) {
+            board->zorbist_table[i][j]=rand64();
+        }
+    }
+    for(int i=0;i<4;++i) {
+        board->zorbist_castle_table[i]=rand64();
+    }
+    for(int i=0;i<8;++i) {
+        board->zorbist_en_passant[i]=rand64();
+    }
+    
+    hash_t hash = 0;
+    for(int i=0;i<2;++i){
+        hash ^= get_hash_for_piece_at_square(board,i);
+    }
+    return hash;
 }
 
 board_t * init_from_FEN(char fen[]) {
@@ -235,76 +308,10 @@ board_t * init_from_FEN(char fen[]) {
     board->enPassantsq=char_to_intsq(enpass);
     board->halfMoveCLock = *halfmove_clock-'0';
     board->moves = *moves-'0';
-
+    init_zorbisttable(board);
     return board;
 }
 
-U64 precomputePawnMove(int square, int direction) {
-    int rank = square/8;
-    int file = square%8;
-    
-    U64 move=0ULL;
-    if (rank!=7 && rank!=0) {
-        if(rank==6&&direction==-1) {
-            move = set_bit(coordinates_to_number(4,file),move,1);
-            return set_bit(coordinates_to_number(5,file),move,1);
-        } else if(rank==1&&direction==1) {
-            
-            move = set_bit(coordinates_to_number(3,file),move,1);
-            return set_bit(coordinates_to_number(2,file),move,1);
-        }
-        else {
-            return set_bit(coordinates_to_number(rank+direction,file),move,1);
-        }
-    }
-    
-    return 0ULL;
-}
-
-void precomputePawnMoves(board_t * board) {
-
-    for(int i=0;i<64;++i) {
-        board->WHITE_PAWN_MOVES[i] = precomputePawnMove(i,1);
-        board->BLACK_PAWN_MOVES[i] = precomputePawnMove(i,-1);
-    }
-}
-
-hash_t init_zorbisttable(board_t * board) {
-    for(int i=0;i<12;++i) {
-        for(int j=0;j<64;++j) {
-            board->zorbist_table[i][j]=rand64();
-        }
-    }
-    for(int i=0;i<4;++i) {
-        board->zorbist_castle_table[i]=rand64();
-    }
-    for(int i=0;i<8;++i) {
-        board->zorbist_en_passant[i]=rand64();
-    }
-    
-    hash_t hash = 0;
-    for(int i=0;i<2;++i){
-        
-        switch (get_piece_at_square(board,i)) {
-            case 'P' : hash ^= board->zorbist_table[0][i]; break;
-            case 'R' : hash ^= board->zorbist_table[1][i]; break;
-            case 'N' : hash ^= board->zorbist_table[2][i]; break;
-            case 'B' : hash ^= board->zorbist_table[3][i]; break;
-            case 'Q' : hash ^= board->zorbist_table[4][i]; break;
-            case 'K' : hash ^= board->zorbist_table[5][i]; break;
-            case 'p' : hash ^= board->zorbist_table[6][i]; break;
-            case 'r' : hash ^= board->zorbist_table[7][i]; break;
-            case 'n' : hash ^= board->zorbist_table[8][i]; break;
-            case 'b' : hash ^= board->zorbist_table[9][i]; break;
-            case 'q' : hash ^= board->zorbist_table[10][i]; break;
-            case 'k' : hash ^= board->zorbist_table[11][i]; break;
-            default : printf("HELLO"); break;
-        }
-            
-        
-    }
-    return hash;
-}
 
 board_t * init_board() {
     board_t * new = NULL;
