@@ -6,6 +6,35 @@
 #include "board.h"
 #include "misc.h"
 
+int on_board(int pos) {
+    if(pos>=0&&pos<64) {
+        return 1;
+    }
+    return 0;
+}
+
+int on_board_rank_file(int rank, int file) {
+    if(rank>=0&&rank<8&&file>=0&&file<8) {
+        return 1;
+    }
+    return 0;
+}
+
+int get_rank(int sq) {
+    return (int) sq /8;
+}
+int get_file(int sq) {
+    return sq%8;
+}
+
+void cool() {
+    for(int i=7;i>=0;--i) {
+        for(int j=7;j>=0;--j) {
+            printf("%d ",coordinates_to_number(i,j));
+        }
+        printf("\n");
+    }
+}
 
 void display_bitBoard(U64 bitboard) {
     int sq;
@@ -114,6 +143,31 @@ void precomputePawnMoves(board_t * board) {
         board->WHITE_PAWN_MOVES[i] = precomputePawnMove(i,1);
         board->BLACK_PAWN_MOVES[i] = precomputePawnMove(i,-1);
     }
+}
+
+void precomputeKnightMoves(board_t * board) {
+    U64 move;
+    int rank,file,pos;
+    const int directions[8][2] = {{-2,-1},{-2,1},{-1,2},{1,2},{2,1},{2,-1},{-1,-2},{1,-2}};
+    for(int i=0;i<64;++i) {
+        
+        move = 0ULL;
+        
+        
+        for(int j=0;j<8;++j) {
+            rank = get_rank(i);
+            file = get_file(i);
+            rank += directions[j][0];
+            file += directions[j][1];
+
+            if(on_board_rank_file(rank,file)) {
+                pos = coordinates_to_number(rank,file);
+                move= set_bit(pos,move,1);
+            }
+        }
+        board->KNIGHT_MOVES[i]=move;
+    }
+
 }
 
 hash_t get_hash_for_piece_at_square(board_t* board, int pos) {
@@ -265,6 +319,7 @@ board_t * init_board() {
     new->KINGS = 0x0800000000000008;
     new->zorbist_hash = init_zorbisttable(new);
     precomputePawnMoves(new);
+    precomputeKnightMoves(new);
     return new;
 }
 // Board Functions End Here

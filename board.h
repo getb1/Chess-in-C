@@ -29,6 +29,7 @@ typedef struct BOARD {
     // Moves
     U64 WHITE_PAWN_MOVES[64];
     U64 BLACK_PAWN_MOVES[64];
+    U64 KNIGHT_MOVES[64];
 } board_t;
 
 typedef struct Move {
@@ -45,10 +46,16 @@ int turn_to_int(char turn);
 int char_to_intsq(char sq[]);
 U64 precomputePawnMove(int square, int direction);
 void precomputePawnMoves(board_t * board);
+void precomputeKnightMoves(board_t * board);
+int on_board(int pos);
+int on_board_rank_file(int rank, int file);
 hash_t get_hash_for_piece_at_square(board_t* board, int pos);
 hash_t update_hash(board_t * board, move_t * move);
 hash_t init_zorbisttable(board_t * board);
 board_t * init_from_FEN(char fen[]);
 board_t * init_board();
+int get_rank(int sq);
+int get_file(int sq);
+void cool();
 
 #endif

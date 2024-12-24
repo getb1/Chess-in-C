@@ -12,16 +12,13 @@
 
 #define BOARD_SIZE 64
 
-
-/* Defnition of the boar type and its relating funcions */
-
 int main() {
     
     board_t * the_board = init_board();
     precomputePawnMove(12,-1);
     char fen[] = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-    precomputePawnMoves(the_board);
-    printf("\n%d",the_board->zorbist_hash);
-    //init_from_FEN(fen);
+    
+    display_bitBoard(the_board->KNIGHT_MOVES[30]);
+    display_bitBoard(set_bit(30,0ULL,1));
     return 0;
 }
