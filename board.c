@@ -170,6 +170,78 @@ void precomputeKnightMoves(board_t * board) {
 
 }
 
+void precompute_rook_moves(board_t * board) {
+    U64 move;
+    int rank,file;
+    for(int i=0;i<64;++i) {
+        move = 0ULL;
+        rank = get_rank(i);
+        file = get_file(i);
+        for(int j=0;j<8;++j) {
+            if(coordinates_to_number(rank,j)!=i) {
+                move |= set_bit(coordinates_to_number(rank,j),move,1);
+            } 
+            if(coordinates_to_number(j,file)!=i) {
+                move|=set_bit(coordinates_to_number(j,file),move,1);
+            }
+        }
+        board->ROOK_MOVES[i]=move;
+    }
+}
+
+void precompute_bishop_moves(board_t * board) {
+    const int directions[4][2] = {{1,1},{-1,-1},{-1,1},{1,-1}};
+    U64 move;
+    int rank,file;
+
+    for(int i=0;i<64;++i) {
+        rank = get_rank(i);
+        file = get_file(i);
+        move = 0ULL;
+        for(int j=1;j<9;++j) {
+            for(int k=0;k<4;++k) {
+                if (on_board_rank_file(rank+(directions[k][0]*j),file+(directions[k][1]*j)))
+                {
+                    
+                    move |= set_bit(coordinates_to_number(rank+(directions[k][0]*j),file+(directions[k][1]*j)),move,1);
+                }
+                
+            }
+        }
+        
+        board->BISHOP_MOVES[i]=move;
+    }
+
+
+}
+
+void precompute_queen_moves(board_t * board) {
+    for(int i=0;i<64;i++) {
+        board->QUEEN_MOVES[i] = board->ROOK_MOVES[i]|board->BISHOP_MOVES[i];
+    }
+}
+
+void precompute_king_moves(board_t * board) {
+    int directions[8][2] = {{-1,-1},{0,-1},{1,-1},{1,0},{1,1},{0,1},{-1,1},{-1,0}};
+    int rank,file,d_file,d_rank,new_file,new_rank;
+    for(int i=0;i<64;++i) {
+        board->KING_MOVES[i]=0ULL;
+        rank = get_rank(i);
+        file = get_file(i);
+        for(int j=0;j<8;++j) {
+            d_file = directions[j][0];
+            d_rank = directions[j][1];
+
+            new_rank = rank+d_rank;
+            new_file = file+d_file;
+
+            if(on_board_rank_file(new_rank,new_file)) {
+                board->KING_MOVES[i]|=set_bit(coordinates_to_number(new_rank,new_file),board->KING_MOVES[i],1);
+            }
+        }
+    }
+}
+
 hash_t get_hash_for_piece_at_square(board_t* board, int pos) {
     switch (get_piece_at_square(board,pos)) {
             case 'P' : return board->zorbist_table[0][pos]; break;
@@ -184,7 +256,7 @@ hash_t get_hash_for_piece_at_square(board_t* board, int pos) {
             case 'b' : return board->zorbist_table[9][pos]; break;
             case 'q' : return board->zorbist_table[10][pos]; break;
             case 'k' : return board->zorbist_table[11][pos]; break;
-            default : printf("HELLO"); break;
+            default : ; break;
         }
 }
 
@@ -225,7 +297,7 @@ board_t * init_from_FEN(char fen[]) {
     
     board_t * board = NULL;
     board = (board_t *) malloc(sizeof(board_t));
-
+    //board = init_board(board);
 
     //board->zorbist_table = init_zorbisttable();
     board->WHITE = 0ULL;
@@ -266,7 +338,7 @@ board_t * init_from_FEN(char fen[]) {
         } else {
             int sqNum = (7-file)+8*rank; // locate where the piece should go on the board
             U64 mask = 1ULL << sqNum;
-
+            
             // add the piece to the correct colour board depending on its capitalisation 
             if(isupper(pieces[i])) {
                 board->WHITE|=mask;
@@ -320,6 +392,10 @@ board_t * init_board() {
     new->zorbist_hash = init_zorbisttable(new);
     precomputePawnMoves(new);
     precomputeKnightMoves(new);
+    precompute_rook_moves(new);
+    precompute_bishop_moves(new);
+    precompute_queen_moves(new);
+    precompute_king_moves(new);
     return new;
 }
 // Board Functions End Here
