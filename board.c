@@ -83,7 +83,7 @@ void display_board(board_t * board) {
         printf("-");
     }
     
-    for(int i=8;i>=0;--i) {
+    for(int i=7;i>=0;--i) {
         printf("\n|");
 
         for(int j=7;j>=0;--j) {
@@ -242,6 +242,101 @@ void precompute_king_moves(board_t * board) {
     }
 }
 
+U64 get_attacks_for_knight_at_square(board_t * board,int pos,int colour) {
+    U64 colour_board = colour ? board->WHITE : board->BLACK;
+    //colour_board = ~colour_board;
+    printf("%d",board->KNIGHT_MOVES[pos]);
+    return (~(colour_board)&board->KNIGHT_MOVES[pos]);
+}
+
+U64 get_attacks_for_bishop_at_square(board_t * board,int pos, int colour) {
+    const int directions[4][2] = {{1,1},{-1,-1},{-1,1},{1,-1}};
+    int allowed[4] = {1, 1, 1, 1};
+    U64 move = board->BISHOP_MOVES[pos];
+
+    int rank = get_rank(pos);
+    int file = get_file(pos);
+
+    int d_rank,d_file,new_rank,new_file;
+    const U64 colour_board = colour ? board->WHITE : board->BLACK;
+    const U64 opponet_board= colour ? board->BLACK : board->WHITE;
+
+    for(int i=0;i<8;++i) {
+        for(int j=0;j<4;++j) {
+            d_rank = directions[j][0]*(i+1);
+            d_file = directions[j][1]*(i+1);
+
+            new_rank = rank+d_rank;
+            new_file = file+d_file;
+            
+            if(on_board_rank_file(new_rank,new_file)) {
+            
+            if(allowed[j]==1) {
+                
+                if(get_bit(coordinates_to_number(new_rank,new_file),colour_board)) {
+                    move &= clear_bit(coordinates_to_number(new_rank,new_file),move);
+                    
+                    allowed[j]=0;
+                } else if(get_bit(coordinates_to_number(new_rank,new_file),opponet_board)) {
+                    allowed[j]=0;
+                }
+            } else {
+                move &= clear_bit(coordinates_to_number(new_rank,new_file),move);
+            }
+
+            }
+        }
+    }
+    return move;
+
+}
+
+U64 get_attacks_for_rook_at_square(board_t * board,int pos, int colour) {
+    const int directions[4][2] = {{0,1},{0,-1},{1,0},{-1,0}};
+    int allowed[4] = {1, 1, 1, 1};
+    U64 move = board->ROOK_MOVES[pos];
+
+    int rank = get_rank(pos);
+    int file = get_file(pos);
+
+    int d_rank,d_file,new_rank,new_file;
+    const U64 colour_board = colour ? board->WHITE : board->BLACK;
+    const U64 opponet_board= colour ? board->BLACK : board->WHITE;
+
+    for(int i=0;i<8;++i) {
+        for(int j=0;j<4;++j) {
+            d_rank = directions[j][0]*(i+1);
+            d_file = directions[j][1]*(i+1);
+
+            new_rank = rank+d_rank;
+            new_file = file+d_file;
+            
+            if(on_board_rank_file(new_rank,new_file)) {
+            
+            if(allowed[j]==1) {
+                
+                if(get_bit(coordinates_to_number(new_rank,new_file),colour_board)) {
+                    move &= clear_bit(coordinates_to_number(new_rank,new_file),move);
+                    
+                    allowed[j]=0;
+                } else if(get_bit(coordinates_to_number(new_rank,new_file),opponet_board)) {
+                    allowed[j]=0;
+                }
+            } else {
+                move &= clear_bit(coordinates_to_number(new_rank,new_file),move);
+            }
+
+            }
+        }
+    }
+    return move;
+
+}
+
+U64 get_attacks_for_queen_at_square(board_t * board,int pos, int colour) {
+    return get_attacks_for_rook_at_square(board,pos,colour)|get_attacks_for_bishop_at_square(board,pos,colour);
+}
+
 hash_t get_hash_for_piece_at_square(board_t* board, int pos) {
     switch (get_piece_at_square(board,pos)) {
             case 'P' : return board->zorbist_table[0][pos]; break;
@@ -297,7 +392,7 @@ board_t * init_from_FEN(char fen[]) {
     
     board_t * board = NULL;
     board = (board_t *) malloc(sizeof(board_t));
-    //board = init_board(board);
+    board = init_board(board);
 
     //board->zorbist_table = init_zorbisttable();
     board->WHITE = 0ULL;
@@ -373,6 +468,21 @@ board_t * init_from_FEN(char fen[]) {
     board->halfMoveCLock = *halfmove_clock-'0';
     board->moves = *moves-'0';
     init_zorbisttable(board);
+
+    printf("%u",board->WHITE);
+    // Remove bug where pieces are duplicated accross the top of the board
+    /*
+    for(int i=0;i<8;i++) {
+        board->WHITE=clear_bit(coordinates_to_number(8,i),board->WHITE);
+        board->BLACK=clear_bit(coordinates_to_number(8,i),board->BLACK);
+        board->ROOKS=clear_bit(coordinates_to_number(8,i),board->ROOKS);
+        board->BISHOPS=clear_bit(coordinates_to_number(8,i),board->BISHOPS);
+        board->KINGS=clear_bit(coordinates_to_number(8,i),board->KINGS);
+        board->KNIGHTS=clear_bit(coordinates_to_number(8,i),board->KNIGHTS);
+        board->QUEENS=clear_bit(coordinates_to_number(8,i),board->QUEENS);
+        board->PAWNS=clear_bit(coordinates_to_number(8,i),board->PAWNS);
+    }*/
+
     return board;
 }
 

@@ -62,5 +62,8 @@ board_t * init_board();
 int get_rank(int sq);
 int get_file(int sq);
 void cool();
+U64 get_attacks_for_knight_at_square(board_t * board,int pos,int colour);
+U64 get_attacks_for_bishop_at_square(board_t * board,int pos, int colour);
+U64 get_attacks_for_rook_at_square(board_t * board,int pos, int colour);
 
 #endif

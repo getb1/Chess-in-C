@@ -23,6 +23,10 @@ U64 set_bit(int pos, U64 number, int new_bit) {
     
 }
 
+U64 clear_bit(int pos,U64 number) {
+  return number & ~((U64)1 << pos);
+}
+
 U64 toggle_bit(int pos, U64 number) {
     return (number ^ (1 << (pos)));
 }

@@ -21,9 +21,9 @@ int main() {
     
     board_t * the_board = init_board();
 
-    char fen[] = "rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2";
+    char fen[] = "rnb1r3/p1ppnppp/1pkb1q2/4p3/1K1P1PPP/2Q1BN1R/PPP1P3/RN3B2 w - - 0 1";
     board_t * b = init_from_FEN(fen);
     display_board(b);
-    
+    display_bitBoard(b->BLACK);
     return 0;
 }
