@@ -245,7 +245,7 @@ void precompute_king_moves(board_t * board) {
 U64 get_attacks_for_knight_at_square(board_t * board,int pos,int colour) {
     U64 colour_board = colour ? board->WHITE : board->BLACK;
     //colour_board = ~colour_board;
-    printf("%d",board->KNIGHT_MOVES[pos]);
+    
     return (~(colour_board)&board->KNIGHT_MOVES[pos]);
 }
 
@@ -335,6 +335,76 @@ U64 get_attacks_for_rook_at_square(board_t * board,int pos, int colour) {
 
 U64 get_attacks_for_queen_at_square(board_t * board,int pos, int colour) {
     return get_attacks_for_rook_at_square(board,pos,colour)|get_attacks_for_bishop_at_square(board,pos,colour);
+}
+
+U64 get_attacks_for_king_at_square(board_t * board, int pos, int colour) {
+    U64 colour_board = colour ? board->WHITE : board->BLACK;
+    //colour_board = ~colour_board;
+    
+    return (~(colour_board)&board->KING_MOVES[pos]);
+}
+
+U64 get_attacks_for_pawn_at_square(board_t * board,int pos, int colour) {
+    U64 *colour_moves = colour ? board->WHITE_PAWN_MOVES: board->BLACK_PAWN_MOVES;
+    int direction = colour ? 1:-1;
+    U64 colour_board = colour ? board->WHITE : board->BLACK;
+    if(colour_moves[pos]==0){
+        return 0ULL;
+    }
+
+    U64 move = 0ULL;
+
+    int rank = get_rank(pos);
+    int file = get_file(pos);
+
+    if(on_board_rank_file(rank+direction,file+1)&&get_bit(coordinates_to_number(rank+direction,file+1),colour_board)!=1) {
+        move |= set_bit(coordinates_to_number(rank+direction,file+1),move,1);
+    }
+    if(on_board_rank_file(rank+direction,file-1)&&get_bit(coordinates_to_number(rank+direction,file-1),colour_board)!=1) {
+        move |= set_bit(coordinates_to_number(rank+direction,file-1),move,1);
+    }
+
+    return move;
+}
+
+U64 generate_attack_maps(board_t * board,int colour) {
+
+    U64 boards[6] = {board->ROOKS,board->KNIGHTS,board->BISHOPS,board->KINGS,board->QUEENS,board->PAWNS};
+
+    U64 colour_board = colour ? board->WHITE : board->BLACK;
+    U64 map = 0ULL;
+    for(int i=0;i<64;++i) {
+        if(get_bit(i,colour_board)) {
+            if(get_bit(i,board->ROOKS)) {
+                map |= get_attacks_for_rook_at_square(board,i,colour);
+            } else if(get_bit(i,board->KNIGHTS)) {
+                map |= get_attacks_for_knight_at_square(board,i,colour);
+            } else if(get_bit(i,board->BISHOPS)) {
+                map |= get_attacks_for_bishop_at_square(board,i,colour);
+            } else if(get_bit(i,board->KINGS)) {
+                map |= get_attacks_for_king_at_square(board,i,colour);
+            } else if(get_bit(i,board->QUEENS)) {
+                map |= get_attacks_for_queen_at_square(board,i,colour);
+            } else if(get_bit(i,board->PAWNS)) {
+                map |= get_attacks_for_pawn_at_square(board,i,colour);
+            }
+        }
+    }
+    return map;
+
+}
+
+int in_check(board_t * board, int colour) {
+    const U64 KING_POS = colour ? board->WHITE&board->KINGS : board->BLACK&board->KINGS;
+
+    U64 attack_map = generate_attack_maps(board, 1-colour);
+    printf("%d\n",attack_map);
+    U64 pos = attack_map;
+    attack_map &=KING_POS;
+    
+    if(pos==KING_POS) {
+        return 1;
+    } return 0;
 }
 
 hash_t get_hash_for_piece_at_square(board_t* board, int pos) {
@@ -469,7 +539,7 @@ board_t * init_from_FEN(char fen[]) {
     board->moves = *moves-'0';
     init_zorbisttable(board);
 
-    printf("%u",board->WHITE);
+    
     // Remove bug where pieces are duplicated accross the top of the board
     /*
     for(int i=0;i<8;i++) {

@@ -65,5 +65,6 @@ void cool();
 U64 get_attacks_for_knight_at_square(board_t * board,int pos,int colour);
 U64 get_attacks_for_bishop_at_square(board_t * board,int pos, int colour);
 U64 get_attacks_for_rook_at_square(board_t * board,int pos, int colour);
-
+U64 generate_attack_maps(board_t * board,int colour);
+int in_check(board_t * board, int colour);
 #endif
