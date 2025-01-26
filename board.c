@@ -39,7 +39,6 @@ void cool() {
 void display_bitBoard(U64 bitboard) {
     int sq;
     printf("\n");
-    printf("%u \n",bitboard);
     for(int i=7;i>=0;--i) {
         for(int j=7;j>=0;j--) {
             sq = coordinates_to_number(i,j); 
@@ -394,18 +393,69 @@ U64 generate_attack_maps(board_t * board,int colour) {
 
 }
 
-int in_check(board_t * board, int colour) {
-    const U64 KING_POS = colour ? board->WHITE&board->KINGS : board->BLACK&board->KINGS;
+int in_check(board_t *board, int colour) {
 
-    U64 attack_map = generate_attack_maps(board, 1-colour);
-    printf("%d\n",attack_map);
-    U64 pos = attack_map;
-    attack_map &=KING_POS;
-    
-    if(pos==KING_POS) {
+    U64 KING_POS = colour ? board->WHITE & board->KINGS : board->BLACK & board->KINGS;
+    U64 attack_map = generate_attack_maps(board, 1 - colour);
+
+    if (KING_POS & attack_map) {
         return 1;
-    } return 0;
+    }
+    return 0;
 }
+
+int piece_on_square(board_t * board, int pos,int colour) {
+    U64 colour_board = ~(colour) ? board->WHITE : board->BLACK;
+
+    if(get_bit(pos,colour_board)) {
+        return 1;
+    }
+    return 0;
+}
+
+U64 get_legal_moves_for_knight_at_square(board_t *board, int pos, int colour) {
+    U64 possible_moves = get_attacks_for_knight_at_square(board, pos, colour);
+    U64 legal_moves = 0ULL;
+
+    for (int i = 0; i < 64; ++i) {
+        if (get_bit(i, possible_moves)) {
+            U64 original_knights = board->KNIGHTS;
+            U64 original_white = board->WHITE;
+            U64 original_black = board->BLACK;
+
+            board->KNIGHTS = clear_bit(pos, board->KNIGHTS);
+            board->KNIGHTS = set_bit(i, board->KNIGHTS, 1);
+
+            if (colour) {
+                board->WHITE = clear_bit(pos, board->WHITE);
+                board->WHITE = set_bit(i, board->WHITE, 1);
+                if (piece_on_square(board, i, ~(colour))) {
+                    board->BLACK = clear_bit(i, board->BLACK);
+                }
+            } else {
+                board->BLACK = clear_bit(pos, board->BLACK);
+                board->BLACK = set_bit(i, board->BLACK, 1);
+                if (piece_on_square(board, i, ~(colour))) {
+                    board->WHITE = clear_bit(i, board->WHITE);
+                }
+            }
+
+            if (in_check(board, colour) != 1) {
+                legal_moves = set_bit(i, legal_moves, 1);
+            }
+            
+            
+
+            // Restore original board state
+            board->KNIGHTS = original_knights;
+            board->WHITE = original_white;
+            board->BLACK = original_black;
+        }
+    }
+
+    return legal_moves;
+}
+
 
 hash_t get_hash_for_piece_at_square(board_t* board, int pos) {
     switch (get_piece_at_square(board,pos)) {
@@ -538,20 +588,6 @@ board_t * init_from_FEN(char fen[]) {
     board->halfMoveCLock = *halfmove_clock-'0';
     board->moves = *moves-'0';
     init_zorbisttable(board);
-
-    
-    // Remove bug where pieces are duplicated accross the top of the board
-    /*
-    for(int i=0;i<8;i++) {
-        board->WHITE=clear_bit(coordinates_to_number(8,i),board->WHITE);
-        board->BLACK=clear_bit(coordinates_to_number(8,i),board->BLACK);
-        board->ROOKS=clear_bit(coordinates_to_number(8,i),board->ROOKS);
-        board->BISHOPS=clear_bit(coordinates_to_number(8,i),board->BISHOPS);
-        board->KINGS=clear_bit(coordinates_to_number(8,i),board->KINGS);
-        board->KNIGHTS=clear_bit(coordinates_to_number(8,i),board->KNIGHTS);
-        board->QUEENS=clear_bit(coordinates_to_number(8,i),board->QUEENS);
-        board->PAWNS=clear_bit(coordinates_to_number(8,i),board->PAWNS);
-    }*/
 
     return board;
 }
