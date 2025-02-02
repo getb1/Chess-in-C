@@ -456,6 +456,139 @@ U64 get_legal_moves_for_knight_at_square(board_t *board, int pos, int colour) {
     return legal_moves;
 }
 
+U64 get_legal_moves_for_rook_at_sqaure(board_t *board, int pos, int colour) {
+    U64 possible_moves = get_attacks_for_rook_at_square(board, pos, colour);
+    U64 legal_moves = 0ULL;
+
+    for (int i = 0; i < 64; ++i) {
+        if (get_bit(i, possible_moves)) {
+            U64 original_rooks = board->ROOKS;
+            U64 original_white = board->WHITE;
+            U64 original_black = board->BLACK;
+
+            board->ROOKS = clear_bit(pos, board->ROOKS);
+            board->ROOKS = set_bit(i, board->ROOKS, 1);
+
+            if (colour) {
+                board->WHITE = clear_bit(pos, board->WHITE);
+                board->WHITE = set_bit(i, board->WHITE, 1);
+                if (piece_on_square(board, i, ~(colour))) {
+                    board->BLACK = clear_bit(i, board->BLACK);
+                }
+            } else {
+                board->BLACK = clear_bit(pos, board->BLACK);
+                board->BLACK = set_bit(i, board->BLACK, 1);
+                if (piece_on_square(board, i, ~(colour))) {
+                    board->WHITE = clear_bit(i, board->WHITE);
+                }
+            }
+
+            if (in_check(board, colour) != 1) {
+                legal_moves = set_bit(i, legal_moves, 1);
+            }
+            
+            
+
+            // Restore original board state
+            board->ROOKS = original_rooks;
+            board->WHITE = original_white;
+            board->BLACK = original_black;
+        }
+    }
+
+    return legal_moves;
+}
+
+U64 get_legal_moves_for_bishop_at_sqaure(board_t *board, int pos, int colour) {
+    U64 possible_moves = get_attacks_for_bishop_at_square(board, pos, colour);
+    U64 legal_moves = 0ULL;
+
+    for (int i = 0; i < 64; ++i) {
+        if (get_bit(i, possible_moves)) {
+            U64 original_bishops = board->BISHOPS;
+            U64 original_white = board->WHITE;
+            U64 original_black = board->BLACK;
+
+            board->BISHOPS = clear_bit(pos, board->BISHOPS);
+            board->BISHOPS = set_bit(i, board->BISHOPS, 1);
+
+            if (colour) {
+                board->WHITE = clear_bit(pos, board->WHITE);
+                board->WHITE = set_bit(i, board->WHITE, 1);
+                if (piece_on_square(board, i, ~(colour))) {
+                    board->BLACK = clear_bit(i, board->BLACK);
+                }
+            } else {
+                board->BLACK = clear_bit(pos, board->BLACK);
+                board->BLACK = set_bit(i, board->BLACK, 1);
+                if (piece_on_square(board, i, ~(colour))) {
+                    board->WHITE = clear_bit(i, board->WHITE);
+                }
+            }
+
+            if (in_check(board, colour) != 1) {
+                legal_moves = set_bit(i, legal_moves, 1);
+            }
+            
+            
+
+            // Restore original board state
+            board->BISHOPS = original_bishops;
+            board->WHITE = original_white;
+            board->BLACK = original_black;
+        }
+    }
+
+    return legal_moves;
+}
+
+U64 get_legal_moves_for_queen_at_square(board_t *board, int pos, int colour) {
+    return get_legal_moves_for_bishop_at_sqaure(board,pos,colour)|get_legal_moves_for_rook_at_sqaure(board,pos,colour);
+}
+
+U64 get_legal_moves_for_king_at_sqaure(board_t *board, int pos, int colour) {
+    U64 possible_moves = get_attacks_for_king_at_square(board, pos, colour);
+    U64 legal_moves = 0ULL;
+    display_bitBoard(possible_moves);
+    for (int i = 0; i < 64; ++i) {
+        if (get_bit(i, possible_moves)) {
+
+            U64 original_kings = board->KINGS;
+            U64 original_white = board->WHITE;
+            U64 original_black = board->BLACK;
+
+            board->KINGS = clear_bit(pos, board->KINGS);
+            board->KINGS = set_bit(i, board->KINGS, 1);
+
+            if (colour) {
+                board->WHITE = clear_bit(pos, board->WHITE);
+                board->WHITE = set_bit(i, board->WHITE, 1);
+                if (piece_on_square(board, i, ~(colour))) {
+                    board->BLACK = clear_bit(i, board->BLACK);
+                }
+            } else {
+                board->BLACK = clear_bit(pos, board->BLACK);
+                board->BLACK = set_bit(i, board->BLACK, 1);
+                if (piece_on_square(board, i, ~(colour))) {
+                    board->WHITE = clear_bit(i, board->WHITE);
+                }
+            }
+
+            if (in_check(board, colour) != 1) {
+                legal_moves = set_bit(i, legal_moves, 1);
+            }
+            
+            
+
+            // Restore original board state
+            board->KINGS = original_kings;
+            board->WHITE = original_white;
+            board->BLACK = original_black;
+        }
+    }
+
+    return legal_moves;
+}
 
 hash_t get_hash_for_piece_at_square(board_t* board, int pos) {
     switch (get_piece_at_square(board,pos)) {

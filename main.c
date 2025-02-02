@@ -10,7 +10,7 @@
 #define BOARD_SIZE 64
 
 /*TODO
-    Work out where piece can move on given square
+    Work out where piece can move on given square - Castling
     checkmates
     stalemates
     get legal moves for a side in position*/
@@ -25,6 +25,6 @@ int main() {
     
     /*display_bitBoard(the_board->WHITE);
     display_bitBoard(generate_attack_maps(the_board,1));*/
-    display_bitBoard(get_legal_moves_for_knight_at_square(b,coordinates_to_number(3,3),0));
+    display_bitBoard(get_legal_moves_for_king_at_sqaure(b,coordinates_to_number(5,5),0));
     return 0;
 }
