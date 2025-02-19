@@ -27,14 +27,6 @@ int get_file(int sq) {
     return sq%8;
 }
 
-void cool() {
-    for(int i=7;i>=0;--i) {
-        for(int j=7;j>=0;--j) {
-            printf("%d ",coordinates_to_number(i,j));
-        }
-        printf("\n");
-    }
-}
 
 void display_bitBoard(U64 bitboard) {
     int sq;
@@ -112,6 +104,10 @@ int char_to_intsq(char sq[]) {
     if(file<0||file>7 || rank<0||rank>7) {return -1;}
 
     return rank*8 + file;
+}
+
+int is_square_empty(board_t * board, int square) {
+    return get_piece_at_square(board,square)=='.';
 }
 
 U64 precomputePawnMove(int square, int direction) {
@@ -549,7 +545,7 @@ U64 get_legal_moves_for_queen_at_square(board_t *board, int pos, int colour) {
 U64 get_legal_moves_for_king_at_sqaure(board_t *board, int pos, int colour) {
     U64 possible_moves = get_attacks_for_king_at_square(board, pos, colour);
     U64 legal_moves = 0ULL;
-    display_bitBoard(possible_moves);
+    
     for (int i = 0; i < 64; ++i) {
         if (get_bit(i, possible_moves)) {
 
@@ -587,26 +583,30 @@ U64 get_legal_moves_for_king_at_sqaure(board_t *board, int pos, int colour) {
         }
         }
         int queen_side_bit,rook_side_bit;
-
+        
         rook_side_bit = colour ? 1 : 3;
         queen_side_bit= colour ? 0:2;
         U64 attack_map = generate_attack_maps(board, ~(colour));
         int king_rank = colour?0:7;
-        if(get_bit(board->castleFlags,rook_side_bit)){
-            int rook_side_file_a = 6;
-            int rook_side_file_b = 5;
+        
+        if(get_bit(rook_side_bit,board->castleFlags)){
+            printf("HELLO");
+            int rook_side_file_a = 2;
+            int rook_side_file_b = 1;
+            if(is_square_empty(board,rook_side_file_a)&&is_square_empty(board,rook_side_file_b)) {
             if(!((get_bit(attack_map,coordinates_to_number(king_rank,rook_side_file_a))&&get_bit(attack_map,coordinates_to_number(king_rank,rook_side_file_b))))) {
                 legal_moves = set_bit(coordinates_to_number(king_rank,rook_side_file_b),legal_moves,1);
-            }
+            }}
         }
 
-        if(get_bit(board->castleFlags,queen_side_bit)) {
-            int queen_side_file_a = 1;
-            int queen_side_file_b = 2;
-            int queen_side_file_c = 3;
+        if(get_bit(queen_side_bit,board->castleFlags)) {
+            int queen_side_file_a = 5;
+            int queen_side_file_b = 4;
+            int queen_side_file_c = 6;
+            if(is_square_empty(board,queen_side_file_a)&&is_square_empty(board,queen_side_file_b)&&is_square_empty(board,queen_side_file_c)) {
             if(!((get_bit(attack_map,coordinates_to_number(king_rank,queen_side_file_a))&&get_bit(attack_map,coordinates_to_number(king_rank,queen_side_file_b)&&get_bit(attack_map,coordinates_to_number(king_rank,queen_side_file_c)))))) {
                 legal_moves = set_bit(coordinates_to_number(king_rank,queen_side_file_a),legal_moves,1);
-            }
+            }}
         
     }
 
@@ -748,7 +748,6 @@ board_t * init_from_FEN(char fen[]) {
     return board;
 }
 
-
 board_t * init_board() {
     board_t * new = NULL;
     new = (board_t *) malloc(sizeof(board_t));
@@ -770,4 +769,7 @@ board_t * init_board() {
     precompute_king_moves(new);
     return new;
 }
+
+//Putting it all together
+
 // Board Functions End Here
