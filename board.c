@@ -585,6 +585,29 @@ U64 get_legal_moves_for_king_at_sqaure(board_t *board, int pos, int colour) {
             board->WHITE = original_white;
             board->BLACK = original_black;
         }
+        }
+        int queen_side_bit,rook_side_bit;
+
+        rook_side_bit = colour ? 1 : 3;
+        queen_side_bit= colour ? 0:2;
+        U64 attack_map = generate_attack_maps(board, ~(colour));
+        int king_rank = colour?0:7;
+        if(get_bit(board->castleFlags,rook_side_bit)){
+            int rook_side_file_a = 6;
+            int rook_side_file_b = 5;
+            if(!((get_bit(attack_map,coordinates_to_number(king_rank,rook_side_file_a))&&get_bit(attack_map,coordinates_to_number(king_rank,rook_side_file_b))))) {
+                legal_moves = set_bit(coordinates_to_number(king_rank,rook_side_file_b),legal_moves,1);
+            }
+        }
+
+        if(get_bit(board->castleFlags,queen_side_bit)) {
+            int queen_side_file_a = 1;
+            int queen_side_file_b = 2;
+            int queen_side_file_c = 3;
+            if(!((get_bit(attack_map,coordinates_to_number(king_rank,queen_side_file_a))&&get_bit(attack_map,coordinates_to_number(king_rank,queen_side_file_b)&&get_bit(attack_map,coordinates_to_number(king_rank,queen_side_file_c)))))) {
+                legal_moves = set_bit(coordinates_to_number(king_rank,queen_side_file_a),legal_moves,1);
+            }
+        
     }
 
     return legal_moves;
