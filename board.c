@@ -27,6 +27,10 @@ int get_file(int sq) {
     return sq%8;
 }
 
+int find_msb(U64 x) {
+    if (x == 0) return -1; // No bits are set
+    return 63 - __builtin_clzll(x);
+}
 
 void display_bitBoard(U64 bitboard) {
     int sq;
@@ -343,6 +347,7 @@ U64 get_attacks_for_pawn_at_square(board_t * board,int pos, int colour) {
     U64 *colour_moves = colour ? board->WHITE_PAWN_MOVES: board->BLACK_PAWN_MOVES;
     int direction = colour ? 1:-1;
     U64 colour_board = colour ? board->WHITE : board->BLACK;
+    U64 opponet_board = colour ? board->BLACK : board->WHITE;
     if(colour_moves[pos]==0){
         return 0ULL;
     }
@@ -611,6 +616,67 @@ U64 get_legal_moves_for_king_at_sqaure(board_t *board, int pos, int colour) {
     }
 
     return legal_moves;
+}
+
+U64 get_legal_moves_for_pawn_at_sqaure(board_t * board,int pos, int colour) {
+    U64 possible_moves = get_attacks_for_pawn_at_square(board,pos,colour)|precomputePawnMove(pos,colour);
+    U64 legal_moves = 0ULL;
+    
+    U64 colour_board = colour ? board->WHITE : board->BLACK;
+    U64 opponet_board = colour ? board->BLACK : board->WHITE;
+
+    int direction = colour;
+
+    int rank = get_rank(pos);
+    int file = get_file(pos);
+
+    int one_ahead = coordinates_to_number(rank+direction,file);
+    int two_ahead = coordinates_to_number(rank+(2*direction),file);
+    int left = coordinates_to_number(rank+direction,file-1);
+    int right = coordinates_to_number(rank+direction,file+1);
+
+    if(!is_square_empty(board,one_ahead)) {
+        
+        possible_moves=clear_bit(one_ahead,possible_moves);
+        possible_moves=clear_bit(two_ahead,possible_moves);   
+    }
+
+    if(is_square_empty(board,left)&&board->enPassantsq!=left) {
+        possible_moves=clear_bit(left,possible_moves);
+    } 
+    if(is_square_empty(board,right)&&board->enPassantsq!=right) {
+        possible_moves=clear_bit(right,possible_moves);
+    }
+
+
+    if(possible_moves==0) {
+        return 0ULL;
+    }
+    
+
+    int msb_pos = find_msb(possible_moves);
+    for(int i=0;i<4;++i) {
+        U64 original_pawns = board->PAWNS;
+        U64 original_white = board->WHITE;
+        U64 original_black = board->BLACK;
+
+        board->PAWNS = clear_bit(pos,board->PAWNS);
+        board->PAWNS = set_bit(msb_pos,board->PAWNS,1);
+
+        if(in_check(board,colour)!=1) {
+            legal_moves = set_bit(msb_pos,legal_moves,1);
+        }
+        // next msb
+        possible_moves = clear_bit(msb_pos,possible_moves);
+        msb_pos = find_msb(possible_moves);
+        board->PAWNS = original_pawns;
+        board->WHITE = original_white;
+        board->BLACK = original_black;
+
+    }
+
+    return clear_bit(63,legal_moves);
+
 }
 
 hash_t get_hash_for_piece_at_square(board_t* board, int pos) {

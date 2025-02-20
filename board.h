@@ -70,4 +70,5 @@ int in_check(board_t * board, int colour);
 U64 get_legal_moves_for_knight_at_square(board_t * board, int pos, int colour);
 U64 get_legal_moves_for_rook_at_sqaure(board_t *board, int pos, int colour);
 U64 get_legal_moves_for_king_at_sqaure(board_t *board, int pos, int colour);
+U64 get_legal_moves_for_pawn_at_sqaure(board_t * board,int pos, int colour);
 #endif
