@@ -19,7 +19,7 @@ typedef struct BOARD {
     int moves;
     int turn;
     int halfMoveCLock;
-    int castleFlags; // 4 bit number 1111 where bits 0 and 1 are black QR and same for white
+    int castleFlags; // 4 bit number 1111 where bits 0 and 1 are WHITE QR and same for BLACK
 
     hash_t zorbist_table[12][64];
     hash_t zorbist_castle_table[4];
@@ -71,4 +71,5 @@ U64 get_legal_moves_for_knight_at_square(board_t * board, int pos, int colour);
 U64 get_legal_moves_for_rook_at_sqaure(board_t *board, int pos, int colour);
 U64 get_legal_moves_for_king_at_sqaure(board_t *board, int pos, int colour);
 U64 get_legal_moves_for_pawn_at_sqaure(board_t * board,int pos, int colour);
+U64 get_legal_moves_for_side(board_t * board,int colour);
 #endif

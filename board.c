@@ -838,4 +838,127 @@ board_t * init_board() {
 
 //Putting it all together
 
+U64 get_legal_moves_for_side(board_t * board,int colour) {
+    U64 legal_moves = 0ULL;
+    U64 colour_board = colour ? board->WHITE : board->BLACK;
+    U64 opponet_board = colour ? board->BLACK : board->WHITE;
+    U64 attack_map = generate_attack_maps(board,colour);
+    U64 possible_moves = 0ULL;
+    
+    for(int i=0;i<64;++i) {
+        if(colour) {
+        switch(get_piece_at_square(board,i)) {
+            case 'P' : possible_moves = get_legal_moves_for_pawn_at_sqaure(board,i,colour); break;
+            case 'R' : possible_moves = get_legal_moves_for_rook_at_sqaure(board,i,colour); break;
+            case 'N' : possible_moves = get_legal_moves_for_knight_at_square(board,i,colour); break;   
+            case 'B' : possible_moves = get_legal_moves_for_bishop_at_sqaure(board,i,colour); break;
+            case 'Q' : possible_moves = get_legal_moves_for_queen_at_square(board,i,colour); break;
+            case 'K' : possible_moves = get_legal_moves_for_king_at_sqaure(board,i,colour); break;
+            
+            default : continue; break;
+        }
+        legal_moves |= possible_moves;
+
+        } else {
+            switch(get_piece_at_square(board,i)) {
+                case 'p' : possible_moves = get_legal_moves_for_pawn_at_sqaure(board,i,colour); break;
+                case 'r' : possible_moves = get_legal_moves_for_rook_at_sqaure(board,i,colour); break;
+                case 'n' : possible_moves = get_legal_moves_for_knight_at_square(board,i,colour); break;   
+                case 'b' : possible_moves = get_legal_moves_for_bishop_at_sqaure(board,i,colour); break;
+                case 'q' : possible_moves = get_legal_moves_for_queen_at_square(board,i,colour); break;
+                case 'k' : possible_moves = get_legal_moves_for_king_at_sqaure(board,i,colour); break;
+                
+                default : continue; break;
+            }
+            legal_moves |= possible_moves;
+        }
+    
+    }
+    display_bitBoard(legal_moves);
+
+    return legal_moves;
+}
+
+
+int make_move(board_t* board,int from, int to) {
+
+    char piece = get_piece_at_square(board,from);
+    char to_piece = get_piece_at_square(board,to);
+
+
+    if(piece=='P') {
+        if(from-to==16) {
+            board->enPassantsq = from-8;
+        } else if(from-to==-16) {
+            board->enPassantsq = from+8;
+        }
+    }
+
+    if(piece=='R') {
+        if(from==0) {
+            board->castleFlags = clear_bit(1,board->castleFlags);
+        } else if(from==7) {
+            board->castleFlags = clear_bit(0,board->castleFlags);
+        }
+    } else if (piece=='r') {
+        if(from==56) {
+            board->castleFlags = clear_bit(3,board->castleFlags);
+        } else if(from==63) {
+            board->castleFlags = clear_bit(2,board->castleFlags);
+        }
+    }
+    
+    {
+        /* code */
+    }
+    
+
+    if(to_piece!='.') {
+        if(isupper(to_piece)) {
+            board->WHITE = clear_bit(to,board->WHITE);
+        } else {
+            board->BLACK = clear_bit(to,board->BLACK);
+        }
+        to_piece = toupper(to_piece);
+        switch (to_piece) {
+            case 'P' : board->PAWNS = clear_bit(to,board->PAWNS); break;
+            case 'R' : board->ROOKS = clear_bit(to,board->ROOKS); break;
+            case 'N' : board->KNIGHTS = clear_bit(to,board->KNIGHTS); break;
+            case 'B' : board->BISHOPS = clear_bit(to,board->BISHOPS); break;
+            case 'Q' : board->QUEENS = clear_bit(to,board->QUEENS); break;
+            case 'K' : board->KINGS = clear_bit(to,board->KINGS); break;
+            default : break;
+        }
+    }
+
+    if(piece=='.') {
+        return -1;
+    }
+
+    
+
+    if(isupper(piece)) {
+        board->WHITE = clear_bit(from,board->WHITE);
+        board->WHITE = set_bit(to,board->WHITE,1);
+    } else {
+        board->BLACK=clear_bit(from,board->BLACK);
+        board->BLACK=set_bit(to,board->BLACK,1);
+    }
+
+    piece = toupper(piece);
+
+    switch (piece){
+    case 'P' : board->PAWNS = clear_bit(from,board->PAWNS); board->PAWNS = set_bit(to,board->PAWNS,1); break;
+    case 'R' : board->ROOKS = clear_bit(from,board->ROOKS); board->ROOKS = set_bit(to,board->ROOKS,1); break;
+    case 'N' : board->KNIGHTS = clear_bit(from,board->KNIGHTS); board->KNIGHTS = set_bit(to,board->KNIGHTS,1); break;
+    case 'B' : board->BISHOPS = clear_bit(from,board->BISHOPS); board->BISHOPS = set_bit(to,board->BISHOPS,1); break;
+    case 'Q' : board->QUEENS = clear_bit(from,board->QUEENS); board->QUEENS = set_bit(to,board->QUEENS,1); break;
+    case 'K' : board->KINGS = clear_bit(from,board->KINGS); board->KINGS = set_bit(to,board->KINGS,1); break;
+    default : break;
+    }
+
+    return 0;
+
+}
+
 // Board Functions End Here

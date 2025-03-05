@@ -19,14 +19,14 @@ int main() {
     
     
 
-    char fen[] = "r3k2r/pppq1ppp/2n1bn2/3p4/3P4/2N1BN2/PPPQ1PPP/R3K2R w KQkq - 0 1";
+    char fen[] = "8/8/8/8/8/8/4P3/4K2k w - - 0 1";
     board_t * b = init_from_FEN(fen);
     display_board(b);
-    
+   
     /*display_bitBoard(the_board->WHITE);
     display_bitBoard(generate_attack_maps(the_board,1));*/
     //display_bitBoard(get_legal_moves_for_king_at_sqaure(b,coordinates_to_number(0,3),1));
-    display_bitBoard(get_legal_moves_for_pawn_at_sqaure(b,coordinates_to_number(1,1),1));
+    get_legal_moves_for_side(b,1);
     free(b);
     return 0;
 }
