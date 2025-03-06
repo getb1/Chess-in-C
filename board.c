@@ -6,6 +6,47 @@
 #include "board.h"
 #include "misc.h"
 
+
+node_t * allocate_stuff() {
+    return (node_t *) malloc(sizeof(node_t));
+}
+
+void append(list_t *list, move_t * data) {
+    node_t * next_item = list->head;
+    while(next_item->next!=0) {
+        next_item = next_item->next;
+    } 
+
+    next_item->next = allocate_stuff();
+    next_item->next->data=data;
+};
+
+move_t * pop(list_t *list, int position) {
+
+    if(position==0) {
+        node_t * done = list->head;
+        list->head=list->head->next;
+        return done->data;
+    }
+
+    node_t * current = list->head;
+    position=position-1;
+    for(int i=0;i<position;i++){
+        if(current->next!=0) {
+            current = current->next;
+        } else {
+            perror("List not that long");
+            
+
+        }
+    }
+    node_t * to_remove = current->next;
+    node_t * join = to_remove->next;
+    current->next = join;
+
+    return to_remove->data;
+}
+
 int on_board(int pos) {
     if(pos>=0&&pos<64) {
         return 1;
@@ -838,7 +879,7 @@ board_t * init_board() {
 
 //Putting it all together
 
-U64 get_legal_moves_for_side(board_t * board,int colour) {
+U64 get_legal_moves_for_side_bitboards(board_t * board,int colour) {
     U64 legal_moves = 0ULL;
     U64 colour_board = colour ? board->WHITE : board->BLACK;
     U64 opponet_board = colour ? board->BLACK : board->WHITE;
@@ -906,13 +947,18 @@ int make_move(board_t* board,int from, int to) {
         } else if(from==63) {
             board->castleFlags = clear_bit(2,board->castleFlags);
         }
+    } else if (piece=='K') {
+        if(from==3) {
+            board->castleFlags= clear_bit(0,board->castleFlags);
+            board->castleFlags= clear_bit(1,board->castleFlags);
+        }
+    } else if(piece=='k') {
+        if(from==59) {
+            board->castleFlags = clear_bit(2,board->castleFlags);
+            board->castleFlags = clear_bit(3,board->castleFlags);
+        }
     }
     
-    {
-        /* code */
-    }
-    
-
     if(to_piece!='.') {
         if(isupper(to_piece)) {
             board->WHITE = clear_bit(to,board->WHITE);
@@ -934,8 +980,6 @@ int make_move(board_t* board,int from, int to) {
     if(piece=='.') {
         return -1;
     }
-
-    
 
     if(isupper(piece)) {
         board->WHITE = clear_bit(from,board->WHITE);
@@ -961,4 +1005,37 @@ int make_move(board_t* board,int from, int to) {
 
 }
 
+move_t * get_legal_move_side(board_t * board, int colour) {
+
+    U64 colour_board = colour ? board->WHITE : board->BLACK;
+    int pop_count = popcount(colour_board);
+    int msb_pos = find_msb(colour_board);
+    for(int i=0;i<pop_count;++i) {
+        U64 possible_moves = 0ULL;
+        char piece = get_piece_at_square(board,msb_pos);
+        if(colour) {
+            switch(piece) {
+                case 'P' : possible_moves = get_legal_moves_for_pawn_at_sqaure(board,msb_pos,colour); break;
+                case 'R' : possible_moves = get_legal_moves_for_rook_at_sqaure(board,msb_pos,colour); break;
+                case 'N' : possible_moves = get_legal_moves_for_knight_at_square(board,msb_pos,colour); break;
+                case 'B' : possible_moves = get_legal_moves_for_bishop_at_sqaure(board,msb_pos,colour); break;
+                case 'Q' : possible_moves = get_legal_moves_for_queen_at_square(board,msb_pos,colour); break;
+                case 'K' : possible_moves = get_legal_moves_for_king_at_sqaure(board,msb_pos,colour); break;
+                default : break;
+            }
+        } else {
+            switch(piece) {
+                case 'p' : possible_moves = get_legal_moves_for_pawn_at_sqaure(board,msb_pos,colour); break;
+                case 'r' : possible_moves = get_legal_moves_for_rook_at_sqaure(board,msb_pos,colour); break;
+                case 'n' : possible_moves = get_legal_moves_for_knight_at_square(board,msb_pos,colour); break;
+                case 'b' : possible_moves = get_legal_moves_for_bishop_at_sqaure(board,msb_pos,colour); break;
+                case 'q' : possible_moves = get_legal_moves_for_queen_at_square(board,msb_pos,colour); break;
+                case 'k' : possible_moves = get_legal_moves_for_king_at_sqaure(board,msb_pos,colour); break;
+                default : break;
+            }
+        }
+    }
+    
+
+}
 // Board Functions End Here

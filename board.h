@@ -43,6 +43,17 @@ typedef struct Move {
     int colour;
 }move_t;
 
+typedef struct  Node
+{
+    move_t * data;
+     struct  Node* next;
+} node_t;
+
+typedef struct linkedList
+{
+    node_t* head;
+} list_t;
+
 void display_bitBoard(U64 bitboard);
 char get_piece_at_square(board_t * board, int square);
 void display_board(board_t * board);
