@@ -6,47 +6,6 @@
 #include "board.h"
 #include "misc.h"
 
-
-node_t * allocate_stuff() {
-    return (node_t *) malloc(sizeof(node_t));
-}
-
-void append(list_t *list, move_t * data) {
-    node_t * next_item = list->head;
-    while(next_item->next!=0) {
-        next_item = next_item->next;
-    } 
-
-    next_item->next = allocate_stuff();
-    next_item->next->data=data;
-};
-
-move_t * pop(list_t *list, int position) {
-
-    if(position==0) {
-        node_t * done = list->head;
-        list->head=list->head->next;
-        return done->data;
-    }
-
-    node_t * current = list->head;
-    position=position-1;
-    for(int i=0;i<position;i++){
-        if(current->next!=0) {
-            current = current->next;
-        } else {
-            perror("List not that long");
-            
-
-        }
-    }
-    node_t * to_remove = current->next;
-    node_t * join = to_remove->next;
-    current->next = join;
-
-    return to_remove->data;
-}
-
 int on_board(int pos) {
     if(pos>=0&&pos<64) {
         return 1;
@@ -132,7 +91,7 @@ void display_board(board_t * board) {
     for(int i=0;i<17;++i) {
         printf("-");
     }
-
+    printf("\n");
 }
 
 int turn_to_int(char turn) {
@@ -591,6 +550,8 @@ U64 get_legal_moves_for_queen_at_square(board_t *board, int pos, int colour) {
 U64 get_legal_moves_for_king_at_sqaure(board_t *board, int pos, int colour) {
     U64 possible_moves = get_attacks_for_king_at_square(board, pos, colour);
     U64 legal_moves = 0ULL;
+
+    
     
     for (int i = 0; i < 64; ++i) {
         if (get_bit(i, possible_moves)) {
@@ -636,7 +597,7 @@ U64 get_legal_moves_for_king_at_sqaure(board_t *board, int pos, int colour) {
         int king_rank = colour?0:7;
         
         if(get_bit(rook_side_bit,board->castleFlags)){
-            printf("HELLO");
+            
             int rook_side_file_a = 2;
             int rook_side_file_b = 1;
             if(is_square_empty(board,rook_side_file_a)&&is_square_empty(board,rook_side_file_b)) {
@@ -868,6 +829,11 @@ board_t * init_board() {
     new->QUEENS =0x1000000000000010;
     new->KINGS = 0x0800000000000008;
     new->zorbist_hash = init_zorbisttable(new);
+    new->turn=1;
+    new->castleFlags = 0x0f;
+    new->enPassantsq = -1;
+    new->halfMoveCLock = 0;
+    new->moves = 0;
     precomputePawnMoves(new);
     precomputeKnightMoves(new);
     precompute_rook_moves(new);
@@ -920,19 +886,23 @@ U64 get_legal_moves_for_side_bitboards(board_t * board,int colour) {
     return legal_moves;
 }
 
-
-int make_move(board_t* board,int from, int to) {
-
+int make_move(board_t* board, move_t * move) {
+    int from = move->from;
+    int to = move->to;
     char piece = get_piece_at_square(board,from);
     char to_piece = get_piece_at_square(board,to);
 
 
-    if(piece=='P') {
+    if(piece=='P'||piece=='p') {
+        board->halfMoveCLock=0;
+
         if(from-to==16) {
             board->enPassantsq = from-8;
         } else if(from-to==-16) {
             board->enPassantsq = from+8;
         }
+    } else {
+        board->halfMoveCLock++;
     }
 
     if(piece=='R') {
@@ -951,11 +921,25 @@ int make_move(board_t* board,int from, int to) {
         if(from==3) {
             board->castleFlags= clear_bit(0,board->castleFlags);
             board->castleFlags= clear_bit(1,board->castleFlags);
+            if(to==1) {
+                board->ROOKS = clear_bit(0,board->ROOKS);
+                board->ROOKS = set_bit(2,board->ROOKS,1);
+            } else if(to==5) {
+                board->ROOKS = clear_bit(7,board->ROOKS);
+                board->ROOKS = set_bit(4,board->ROOKS,1);
+            }
         }
     } else if(piece=='k') {
         if(from==59) {
             board->castleFlags = clear_bit(2,board->castleFlags);
             board->castleFlags = clear_bit(3,board->castleFlags);
+            if(to==57) {
+                board->ROOKS = clear_bit(56,board->ROOKS);
+                board->ROOKS = set_bit(58,board->ROOKS,1);
+            } else if(to==61) {
+                board->ROOKS = clear_bit(63,board->ROOKS);
+                board->ROOKS = set_bit(60,board->ROOKS,1);
+            }
         }
     }
     
@@ -1000,6 +984,8 @@ int make_move(board_t* board,int from, int to) {
     case 'K' : board->KINGS = clear_bit(from,board->KINGS); board->KINGS = set_bit(to,board->KINGS,1); break;
     default : break;
     }
+    board->turn = 1-board->turn;
+    board->moves++;
 
     return 0;
 
@@ -1007,8 +993,11 @@ int make_move(board_t* board,int from, int to) {
 
 move_t * get_legal_move_side(board_t * board, int colour) {
 
+    static move_t legal_moves[300];
+    int move_count = 0;
+
     U64 colour_board = colour ? board->WHITE : board->BLACK;
-    int pop_count = popcount(colour_board);
+    const int pop_count = __builtin_popcountll(colour_board);
     int msb_pos = find_msb(colour_board);
     for(int i=0;i<pop_count;++i) {
         U64 possible_moves = 0ULL;
@@ -1034,8 +1023,74 @@ move_t * get_legal_move_side(board_t * board, int colour) {
                 default : break;
             }
         }
+        int possible_move_count = __builtin_popcountll(possible_moves);
+        int from=msb_pos;
+        int to = find_msb(possible_moves);
+        for(int j=0;j<possible_move_count;++j) {
+            legal_moves[move_count].from = from;
+            legal_moves[move_count].to = to;
+            legal_moves[move_count].piece = piece;
+            legal_moves[move_count].colour = colour;
+            move_count++;
+            possible_moves = clear_bit(to,possible_moves);
+            to = find_msb(possible_moves);
+        }
+        colour_board=clear_bit(msb_pos,colour_board);
+        msb_pos = find_msb(colour_board);
     }
     
+    return legal_moves;
 
 }
+
+int checkmate(board_t * board) {
+    if(in_check(board, board->turn)) {
+        move_t * moves = get_legal_move_side(board,board->turn);
+    if(moves[0].from==0&&moves[0].to==0) {
+        return 1;
+    }
+        
+    }
+    return 0;
+}
+
+int stalemate(board_t * board) {
+    if(in_check(board,board->turn)) {
+        return 0;
+    }
+    move_t * moves = get_legal_move_side(board,board->turn);
+    if(moves[0].from==0&&moves[0].to==0) {
+        return 1;
+    }
+    return 0;
+}
+
+int is_terminal(board_t * board) {
+    if(checkmate(board)||stalemate(board)) {
+        return 1;
+    }
+    return 0;
+}
 // Board Functions End Here
+
+
+void play() {
+    board_t * board = init_board();
+
+    while(!(is_terminal(board))) {
+        display_board(board);
+        move_t * moves = get_legal_move_side(board,board->turn);
+
+        for(int i=0;i<300;++i) {
+            if(moves[i].from==0&&moves[i].to==0) {
+                break;
+            }
+            printf("%d - From: %d To: %d\n",i,moves[i].from,moves[i].to);
+        }
+        printf("Enter your move: ");
+        int to_make;
+        scanf("%d",&to_make);
+        make_move(board,&moves[to_make]);
+    }
+
+}

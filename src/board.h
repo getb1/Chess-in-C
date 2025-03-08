@@ -39,7 +39,7 @@ typedef struct BOARD {
 typedef struct Move {
     int from;
     int to;
-    int piece;
+    char piece;
     int colour;
 }move_t;
 
@@ -82,5 +82,9 @@ U64 get_legal_moves_for_knight_at_square(board_t * board, int pos, int colour);
 U64 get_legal_moves_for_rook_at_sqaure(board_t *board, int pos, int colour);
 U64 get_legal_moves_for_king_at_sqaure(board_t *board, int pos, int colour);
 U64 get_legal_moves_for_pawn_at_sqaure(board_t * board,int pos, int colour);
-U64 get_legal_moves_for_side(board_t * board,int colour);
+U64 get_legal_moves_for_side_bitboards(board_t * board,int colour);
+move_t * get_legal_move_side(board_t * board, int colour);
+int make_move(board_t* board,move_t * move);
+int coordinates_to_number(int rank, int file);
+void play();
 #endif
