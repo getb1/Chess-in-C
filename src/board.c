@@ -621,13 +621,15 @@ U64 get_legal_moves_for_king_at_sqaure(board_t *board, int pos, int colour) {
 }
 
 U64 get_legal_moves_for_pawn_at_sqaure(board_t * board,int pos, int colour) {
-    U64 possible_moves = get_attacks_for_pawn_at_square(board,pos,colour)|precomputePawnMove(pos,colour);
+    // get the possible moves for the pawn
+    int direction = colour ? 1 : -1;
+    U64 possible_moves = get_attacks_for_pawn_at_square(board,pos,colour)|precomputePawnMove(pos,direction);
     U64 legal_moves = 0ULL;
     
     U64 colour_board = colour ? board->WHITE : board->BLACK;
     U64 opponet_board = colour ? board->BLACK : board->WHITE;
 
-    int direction = colour;
+    
 
     int rank = get_rank(pos);
     int file = get_file(pos);
@@ -636,11 +638,18 @@ U64 get_legal_moves_for_pawn_at_sqaure(board_t * board,int pos, int colour) {
     int two_ahead = coordinates_to_number(rank+(2*direction),file);
     int left = coordinates_to_number(rank+direction,file-1);
     int right = coordinates_to_number(rank+direction,file+1);
+    
+
+    
 
     if(!is_square_empty(board,one_ahead)) {
         
         possible_moves=clear_bit(one_ahead,possible_moves);
-        possible_moves=clear_bit(two_ahead,possible_moves);   
+        possible_moves=clear_bit(two_ahead,possible_moves);
+    }
+
+    if(!is_square_empty(board,two_ahead)) {
+        possible_moves=clear_bit(two_ahead,possible_moves);
     }
 
     if(is_square_empty(board,left)&&board->enPassantsq!=left) {
@@ -655,7 +664,7 @@ U64 get_legal_moves_for_pawn_at_sqaure(board_t * board,int pos, int colour) {
         return 0ULL;
     }
     
-
+    
     int msb_pos = find_msb(possible_moves);
     for(int i=0;i<4;++i) {
         U64 original_pawns = board->PAWNS;
