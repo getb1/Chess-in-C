@@ -994,6 +994,7 @@ int make_move(board_t* board, move_t * move) {
 move_t * get_legal_move_side(board_t * board, int colour) {
 
     static move_t legal_moves[300];
+    memset(legal_moves,0,sizeof(legal_moves));
     int move_count = 0;
 
     U64 colour_board = colour ? board->WHITE : board->BLACK;
@@ -1079,6 +1080,7 @@ void play() {
 
     while(!(is_terminal(board))) {
         display_board(board);
+        printf("%d\n",board->turn);
         move_t * moves = get_legal_move_side(board,board->turn);
 
         for(int i=0;i<300;++i) {
@@ -1091,6 +1093,7 @@ void play() {
         int to_make;
         scanf("%d",&to_make);
         make_move(board,&moves[to_make]);
+        memset(moves,0,sizeof(moves));
     }
 
 }
