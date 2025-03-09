@@ -6,23 +6,23 @@
 
 #include "board.h"
 #include "misc.h"
+#include "perft.h"
 
 #define BOARD_SIZE 64
 
-/*TODO
-    Work out where piece can move on given square - Castling
-    checkmates
-    stalemates
-    get legal moves for a side in position*/
 
 int main() {
     
-    char fen[] = "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 4";
+    char fen[] = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     
-    board_t * board = init_board();
+    board_t * board = init_from_FEN(fen);
 
-    play();
-
+    //play();
+    //play();
+    printf("%d",perft(board,2));
+    display_board(board);
+    free(board->move_stack);
+    free(board);
     
     return 0;
 }

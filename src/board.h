@@ -4,6 +4,26 @@
 typedef unsigned long long int U64;
 typedef __uint64_t hash_t;
 
+typedef struct Move {
+    int from;
+    int to;
+    char piece;
+    int colour;
+
+    int prev_enPassantSq;
+    int prev_halfMoveClock;
+    int prev_castleFlags;
+    char capturedPiece;
+    char promotedPiece;
+
+}move_t;
+
+
+typedef struct MoveStack {
+    move_t * moves[4096];
+    int top;
+} move_stack_t;
+
 typedef struct BOARD {
     //bitboards
     U64 WHITE;
@@ -19,7 +39,7 @@ typedef struct BOARD {
     int moves;
     int turn;
     int halfMoveCLock;
-    int castleFlags; // 4 bit number 1111 where bits 0 and 1 are WHITE QR and same for BLACK
+    int castleFlags;// 4 bit number 1111 where bits 0 and 1 are WHITE QR and same for BLACK
 
     hash_t zorbist_table[12][64];
     hash_t zorbist_castle_table[4];
@@ -34,25 +54,10 @@ typedef struct BOARD {
     U64 BISHOP_MOVES[64];
     U64 QUEEN_MOVES[64];
     U64 KING_MOVES[64];
+
+    move_stack_t * move_stack;
 } board_t;
 
-typedef struct Move {
-    int from;
-    int to;
-    char piece;
-    int colour;
-}move_t;
-
-typedef struct  Node
-{
-    move_t * data;
-     struct  Node* next;
-} node_t;
-
-typedef struct linkedList
-{
-    node_t* head;
-} list_t;
 
 void display_bitBoard(U64 bitboard);
 char get_piece_at_square(board_t * board, int square);
@@ -87,4 +92,6 @@ move_t * get_legal_move_side(board_t * board, int colour);
 int make_move(board_t* board,move_t * move);
 int coordinates_to_number(int rank, int file);
 void play();
+int undo_move(board_t * board);
+
 #endif

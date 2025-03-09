@@ -6,6 +6,40 @@
 #include "board.h"
 #include "misc.h"
 
+move_stack_t * create_stack() {
+    move_stack_t * stack = (move_stack_t*) malloc(sizeof(move_stack_t*));
+    if (stack == NULL) {
+        fprintf(stderr, "Failed to allocate memory for move stack\n");
+        exit(EXIT_FAILURE);
+    }
+
+    for(int i=0;i<4096;++i) {
+        stack->moves[i] = (move_t*) malloc(sizeof(move_t*));
+        if (stack->moves[i] == NULL) {
+            fprintf(stderr, "Failed to allocate memory for move stack\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    stack->top=0;
+    
+    return stack;
+}
+
+move_stack_t * push(move_stack_t * stack, move_t* move) {
+    stack->moves[stack->top]=move;
+    stack->top++;
+    return stack;
+}
+
+move_t * pop(move_stack_t * stack) {
+    if(stack->top==0) {
+        return NULL;
+    }
+    stack->top--;
+    return (move_t *) stack->moves[stack->top];
+}
+
 int on_board(int pos) {
     if(pos>=0&&pos<64) {
         return 1;
@@ -638,9 +672,6 @@ U64 get_legal_moves_for_pawn_at_sqaure(board_t * board,int pos, int colour) {
     int two_ahead = coordinates_to_number(rank+(2*direction),file);
     int left = coordinates_to_number(rank+direction,file-1);
     int right = coordinates_to_number(rank+direction,file+1);
-    
-
-    
 
     if(!is_square_empty(board,one_ahead)) {
         
@@ -757,6 +788,7 @@ board_t * init_from_FEN(char fen[]) {
     board->QUEENS = 0ULL;
     board->KINGS = 0ULL;
     board->enPassantsq=-1;
+    board->castleFlags=0;
 
     char * token = strtok(fen, " ");
     
@@ -828,6 +860,11 @@ board_t * init_from_FEN(char fen[]) {
 board_t * init_board() {
     board_t * new = NULL;
     new = (board_t *) malloc(sizeof(board_t));
+    if (new == NULL) {
+        fprintf(stderr, "Failed to allocate memory for board\n");
+        exit(EXIT_FAILURE);
+    }
+    new->move_stack=create_stack();
 
     new->WHITE = 0x000000000000ffff;
     new->BLACK = 0xffff000000000000;
@@ -901,6 +938,11 @@ int make_move(board_t* board, move_t * move) {
     char piece = get_piece_at_square(board,from);
     char to_piece = get_piece_at_square(board,to);
 
+    // copy current data into the previous store
+
+    move->prev_castleFlags=board->castleFlags;
+    move->prev_enPassantSq=board->enPassantsq;
+    move->prev_halfMoveClock=board->halfMoveCLock;
 
     if(piece=='P'||piece=='p') {
         board->halfMoveCLock=0;
@@ -909,6 +951,8 @@ int make_move(board_t* board, move_t * move) {
             board->enPassantsq = from-8;
         } else if(from-to==-16) {
             board->enPassantsq = from+8;
+        } else {
+            board->enPassantsq = -1;
         }
     } else {
         board->halfMoveCLock++;
@@ -985,7 +1029,18 @@ int make_move(board_t* board, move_t * move) {
     piece = toupper(piece);
 
     switch (piece){
-    case 'P' : board->PAWNS = clear_bit(from,board->PAWNS); board->PAWNS = set_bit(to,board->PAWNS,1); break;
+    case 'P' : board->PAWNS = clear_bit(from,board->PAWNS); 
+    if(move->promotedPiece!='.'){
+        switch(move->promotedPiece) {
+            case 'R' : board->ROOKS = set_bit(to,board->ROOKS,1); break;
+            case 'N' : board->KNIGHTS = set_bit(to,board->KNIGHTS,1); break;
+            case 'B' : board->BISHOPS = set_bit(to,board->BISHOPS,1); break;
+            case 'Q' : board->QUEENS = set_bit(to,board->QUEENS,1); break;
+            default : break;
+        }
+    } else {
+
+    board->PAWNS = set_bit(to,board->PAWNS,1);} break;
     case 'R' : board->ROOKS = clear_bit(from,board->ROOKS); board->ROOKS = set_bit(to,board->ROOKS,1); break;
     case 'N' : board->KNIGHTS = clear_bit(from,board->KNIGHTS); board->KNIGHTS = set_bit(to,board->KNIGHTS,1); break;
     case 'B' : board->BISHOPS = clear_bit(from,board->BISHOPS); board->BISHOPS = set_bit(to,board->BISHOPS,1); break;
@@ -996,8 +1051,87 @@ int make_move(board_t* board, move_t * move) {
     board->turn = 1-board->turn;
     board->moves++;
 
+    move->capturedPiece=to_piece;
+    board->move_stack=push(board->move_stack,move);
+
     return 0;
 
+}
+
+int undo_move(board_t* board) {
+    move_t * move = pop(board->move_stack);
+
+    // copy the values back
+    board->castleFlags = move->prev_castleFlags;
+    board->enPassantsq = move->prev_enPassantSq;
+    board->halfMoveCLock = move->prev_halfMoveClock;
+    board->turn = move->colour;
+    int from = move->from;
+    int to = move->to;
+    char piece = get_piece_at_square(board, to);
+    char captured = move->capturedPiece;
+
+    if (piece == '.') {
+        return -1;
+    }
+
+    // Move the piece back to its original position
+    if (isupper(piece)) {
+        board->WHITE = clear_bit(to, board->WHITE);
+        board->WHITE = set_bit(from, board->WHITE, 1);
+    } else {
+        board->BLACK = clear_bit(to, board->BLACK);
+        board->BLACK = set_bit(from, board->BLACK, 1);
+    }
+
+    piece = toupper(piece);
+    switch (piece) {
+        case 'P':
+            if (move->promotedPiece == '.') {
+                board->PAWNS = clear_bit(to, board->PAWNS);
+            } else {
+                switch (move->promotedPiece) {
+                    case 'R': board->ROOKS = clear_bit(to, board->ROOKS); break;
+                    case 'N': board->KNIGHTS = clear_bit(to, board->KNIGHTS); break;
+                    case 'B': board->BISHOPS = clear_bit(to, board->BISHOPS); break;
+                    case 'Q': board->QUEENS = clear_bit(to, board->QUEENS); break;
+                    default: break;
+                }
+            }
+            board->PAWNS = set_bit(from, board->PAWNS, 1);
+            break;
+        case 'R': board->ROOKS = clear_bit(to, board->ROOKS); board->ROOKS = set_bit(from, board->ROOKS, 1); break;
+        case 'N': board->KNIGHTS = clear_bit(to, board->KNIGHTS); board->KNIGHTS = set_bit(from, board->KNIGHTS, 1); break;
+        case 'B': board->BISHOPS = clear_bit(to, board->BISHOPS); board->BISHOPS = set_bit(from, board->BISHOPS, 1); break;
+        case 'Q': board->QUEENS = clear_bit(to, board->QUEENS); board->QUEENS = set_bit(from, board->QUEENS, 1); break;
+        case 'K': board->KINGS = clear_bit(to, board->KINGS); board->KINGS = set_bit(from, board->KINGS, 1); break;
+        default: break;
+    }
+
+    // Restore the captured piece, if any
+    if (captured != '.') {
+        if (isupper(captured)) {
+            board->WHITE = set_bit(to, board->WHITE, 1);
+        } else {
+            board->BLACK = set_bit(to, board->BLACK, 1);
+        }
+
+        captured = toupper(captured);
+        switch (captured) {
+            case 'P': board->PAWNS = set_bit(to, board->PAWNS, 1); break;
+            case 'R': board->ROOKS = set_bit(to, board->ROOKS, 1); break;
+            case 'N': board->KNIGHTS = set_bit(to, board->KNIGHTS, 1); break;
+            case 'B': board->BISHOPS = set_bit(to, board->BISHOPS, 1); break;
+            case 'Q': board->QUEENS = set_bit(to, board->QUEENS, 1); break;
+            case 'K': board->KINGS = set_bit(to, board->KINGS, 1); break;
+            default: break;
+        }
+    }
+
+    board->turn = move->colour;
+    board->moves--;
+    display_board(board);
+    return 0;
 }
 
 move_t * get_legal_move_side(board_t * board, int colour) {
@@ -1041,7 +1175,31 @@ move_t * get_legal_move_side(board_t * board, int colour) {
             legal_moves[move_count].to = to;
             legal_moves[move_count].piece = piece;
             legal_moves[move_count].colour = colour;
-            move_count++;
+
+            if(piece=='P'||piece=='p') {
+                if((to<8&&colour)||(to>55&&!(colour))) {
+                    legal_moves[move_count].promotedPiece = 'Q';
+                    move_count++;
+                    char pieces[] = "rnb";
+                    for(int k=0;k<3;++k) {
+                        legal_moves[move_count].promotedPiece = pieces[k];
+                        legal_moves[move_count].from = from;
+                        legal_moves[move_count].to = to;
+                        legal_moves[move_count].piece = piece;
+                        legal_moves[move_count].colour = colour;
+                        move_count++;
+                    }
+
+                } else {
+                    legal_moves[move_count].promotedPiece = '.';
+                    move_count++;
+                }
+            } else{
+                legal_moves[move_count].promotedPiece = '.';
+                move_count++;
+            }
+
+            
             possible_moves = clear_bit(to,possible_moves);
             to = find_msb(possible_moves);
         }
@@ -1069,7 +1227,7 @@ int stalemate(board_t * board) {
         return 0;
     }
     move_t * moves = get_legal_move_side(board,board->turn);
-    if(moves[0].from==0&&moves[0].to==0) {
+    if(moves[0].from==0&&moves[0].to==0||board->halfMoveCLock>=50) {
         return 1;
     }
     return 0;
@@ -1082,6 +1240,7 @@ int is_terminal(board_t * board) {
     return 0;
 }
 // Board Functions End Here
+
 
 
 void play() {
@@ -1100,9 +1259,11 @@ void play() {
         }
         printf("Enter your move: ");
         int to_make;
-        scanf("%d",&to_make);
-        make_move(board,&moves[to_make]);
+        
+        make_move(board,&moves[0]);
+        undo_move(board);
         memset(moves,0,sizeof(moves));
+        
     }
 
 }
