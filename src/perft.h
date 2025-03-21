@@ -4,6 +4,6 @@
 #include "board.h"
 #include "misc.h"
 
-int perft(board_t * board, int depth);
+int perft(board_t * board, int depth, board_stack_t * stack);
 void p(board_t * board, int depth);
 #endif

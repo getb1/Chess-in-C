@@ -15,8 +15,11 @@ typedef struct Move {
     int prev_castleFlags;
     char capturedPiece;
     char promotedPiece;
+    
+    
+    int enPassantCaptureSq;
+} move_t;
 
-}move_t;
 
 
 typedef struct MoveStack {
@@ -55,9 +58,14 @@ typedef struct BOARD {
     U64 QUEEN_MOVES[64];
     U64 KING_MOVES[64];
 
-    move_stack_t * move_stack;
+    
 } board_t;
 
+
+typedef struct BOARD_STACK {
+    board_t * stack[4096];
+    int top;
+} board_stack_t;
 
 void display_bitBoard(U64 bitboard);
 char get_piece_at_square(board_t * board, int square);
@@ -89,9 +97,10 @@ U64 get_legal_moves_for_king_at_sqaure(board_t *board, int pos, int colour);
 U64 get_legal_moves_for_pawn_at_sqaure(board_t * board,int pos, int colour);
 U64 get_legal_moves_for_side_bitboards(board_t * board,int colour);
 move_t * get_legal_move_side(board_t * board, int colour);
-int make_move(board_t* board,move_t * move);
+int make_move(board_t* board,move_t * move,board_stack_t * stack);
 int coordinates_to_number(int rank, int file);
 void play();
-int undo_move(board_t * board);
+board_t * undo_move(board_stack_t * stack, board_t * board);
+board_stack_t * c_stack();
 
 #endif

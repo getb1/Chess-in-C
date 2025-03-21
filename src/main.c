@@ -18,11 +18,16 @@ int main() {
     board_t * board = init_from_FEN(fen);
 
     //play();
-    //play();
-    printf("%d",perft(board,2));
-    display_board(board);
-    free(board->move_stack);
-    free(board);
+
+    board_stack_t * s = c_stack();
+
+    play();
+    
+    
+
+
+
+    
     
     return 0;
 }

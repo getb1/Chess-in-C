@@ -5,41 +5,28 @@
 #include "board.h"
 #include "misc.h"
 
-// Function prototypes
-typedef struct {
-    board_t board;
-    int depth;
-} stack_frame_t;
+int perft(board_t * board,int depth,board_stack_t * stack) {
 
-int perft(board_t * board, int depth) {
     if(depth==0) {
         return 1;
     }
+
     int nodes = 0;
-    move_t * moves = get_legal_move_side(board,board->turn);
-    for(int i=0; i<300; i++) {
+
+    move_t * moves = get_legal_move_side(board,board->turn); 
+    
+    for(int i=0;i<300;i++) {
         if(moves[i].from==0&&moves[i].to==0) {
             break;
         }
-        make_move(board,&moves[i]);
-        nodes += perft(board,depth-1);
-        undo_move(board);
+
+        make_move(board,&moves[i],stack);
+        display_board(board);
+        nodes = nodes+perft(board,depth-1,stack);
+        board = undo_move(stack,board);
+
     }
     return nodes;
+
 }
 
-void p(board_t * board, int depth) {
-    if(depth==0) {
-        return;
-    }
-    printf("Depth: %d\n",depth);
-    move_t * moves = get_legal_move_side(board,board->turn);
-    make_move(board,&moves[0]);
-    display_board(board);
-    getchar();
-    p(board,depth-1);
-    undo_move(board);
-    
-    printf("Depth: %d\n",depth);
-    
-}

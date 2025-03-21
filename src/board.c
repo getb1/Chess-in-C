@@ -6,40 +6,40 @@
 #include "board.h"
 #include "misc.h"
 
-move_stack_t * create_stack() {
-    move_stack_t * stack = (move_stack_t*) malloc(sizeof(move_stack_t*));
-    if (stack == NULL) {
-        fprintf(stderr, "Failed to allocate memory for move stack\n");
-        exit(EXIT_FAILURE);
-    }
 
-    for(int i=0;i<4096;++i) {
-        stack->moves[i] = (move_t*) malloc(sizeof(move_t*));
-        if (stack->moves[i] == NULL) {
-            fprintf(stderr, "Failed to allocate memory for move stack\n");
-            exit(EXIT_FAILURE);
-        }
-    }
 
-    stack->top=0;
+board_t * copy_board(board_t * original) {
     
-    return stack;
-}
 
-move_stack_t * push(move_stack_t * stack, move_t* move) {
-    stack->moves[stack->top]=move;
-    stack->top++;
-    return stack;
-}
-
-move_t * pop(move_stack_t * stack) {
-    if(stack->top==0) {
-        return NULL;
+    if (original == NULL) {
+        return NULL; // Handle invalid input
     }
-    stack->top--;
-    return (move_t *) stack->moves[stack->top];
-}
 
+    // Allocate memory for the new board
+    board_t *copy = (board_t *)malloc(sizeof(board_t));
+    if (copy == NULL) {
+        return NULL; // Memory allocation failed
+    }
+
+    // Copy scalar fields directly
+    copy->WHITE = original->WHITE;
+    copy->BLACK = original->BLACK;
+    copy->PAWNS = original->PAWNS;
+    copy->ROOKS = original->ROOKS;
+    copy->KNIGHTS = original->KNIGHTS;
+    copy->BISHOPS = original->BISHOPS;
+    copy->QUEENS = original->QUEENS;
+    copy->KINGS = original->KINGS;
+    copy->enPassantsq = original->enPassantsq;
+    copy->moves = original->moves;
+    copy->turn = original->turn;
+    copy->halfMoveCLock = original->halfMoveCLock;
+    copy->castleFlags = original->castleFlags;
+    copy->zorbist_hash = original->zorbist_hash;
+    copy->zorbist_to_move = original->zorbist_to_move;
+
+    return copy;
+}
 int on_board(int pos) {
     if(pos>=0&&pos<64) {
         return 1;
@@ -864,7 +864,7 @@ board_t * init_board() {
         fprintf(stderr, "Failed to allocate memory for board\n");
         exit(EXIT_FAILURE);
     }
-    new->move_stack=create_stack();
+    
 
     new->WHITE = 0x000000000000ffff;
     new->BLACK = 0xffff000000000000;
@@ -932,7 +932,24 @@ U64 get_legal_moves_for_side_bitboards(board_t * board,int colour) {
     return legal_moves;
 }
 
-int make_move(board_t* board, move_t * move) {
+board_stack_t * c_stack() {
+    board_stack_t * new = (board_stack_t*) malloc(sizeof(board_stack_t));
+    new->top=0;
+    return new;
+}
+
+board_stack_t * push(board_stack_t * stack, board_t * board) {
+    stack->stack[stack->top] = copy_board(board);
+    stack->top++;
+    return stack;
+}
+
+board_t * pop(board_stack_t * stack) {
+    stack->top--;
+    return stack->stack[stack->top];
+}
+
+int make_move(board_t* board, move_t * move, board_stack_t * stack) {
     int from = move->from;
     int to = move->to;
     char piece = get_piece_at_square(board,from);
@@ -943,8 +960,10 @@ int make_move(board_t* board, move_t * move) {
     move->prev_castleFlags=board->castleFlags;
     move->prev_enPassantSq=board->enPassantsq;
     move->prev_halfMoveClock=board->halfMoveCLock;
+    move->enPassantCaptureSq=-1;
 
     if(piece=='P'||piece=='p') {
+
         board->halfMoveCLock=0;
 
         if(from-to==16) {
@@ -954,6 +973,32 @@ int make_move(board_t* board, move_t * move) {
         } else {
             board->enPassantsq = -1;
         }
+
+        if(get_file(from) - get_file(to)==-1 || get_file(from) - get_file(to)==1) {
+            if(get_piece_at_square(board,to)=='.') {
+                int capturedSQ;
+
+                if(isupper(piece)) {
+                    capturedSQ = to+8;
+                } else {
+                    capturedSQ=to-8;
+                }
+
+                char captured_pawn = get_piece_at_square(board,capturedSQ);
+                move->capturedPiece=captured_pawn;
+                move->enPassantCaptureSq=capturedSQ;
+                if (isupper(captured_pawn)) {
+                    board->WHITE = clear_bit(capturedSQ, board->WHITE);
+                    board->PAWNS = clear_bit(capturedSQ, board->PAWNS);
+                } else {
+                    board->BLACK = clear_bit(capturedSQ, board->BLACK);
+                    board->PAWNS = clear_bit(capturedSQ, board->PAWNS);
+                }
+            } else {
+                move->enPassantCaptureSq = -1;
+            }
+        }
+
     } else {
         board->halfMoveCLock++;
     }
@@ -1052,86 +1097,19 @@ int make_move(board_t* board, move_t * move) {
     board->moves++;
 
     move->capturedPiece=to_piece;
-    board->move_stack=push(board->move_stack,move);
-
+    
+    push(stack,board);
+    
+    
     return 0;
 
 }
 
-int undo_move(board_t* board) {
-    move_t * move = pop(board->move_stack);
 
-    // copy the values back
-    board->castleFlags = move->prev_castleFlags;
-    board->enPassantsq = move->prev_enPassantSq;
-    board->halfMoveCLock = move->prev_halfMoveClock;
-    board->turn = move->colour;
-    int from = move->from;
-    int to = move->to;
-    char piece = get_piece_at_square(board, to);
-    char captured = move->capturedPiece;
 
-    if (piece == '.') {
-        return -1;
-    }
-
-    // Move the piece back to its original position
-    if (isupper(piece)) {
-        board->WHITE = clear_bit(to, board->WHITE);
-        board->WHITE = set_bit(from, board->WHITE, 1);
-    } else {
-        board->BLACK = clear_bit(to, board->BLACK);
-        board->BLACK = set_bit(from, board->BLACK, 1);
-    }
-
-    piece = toupper(piece);
-    switch (piece) {
-        case 'P':
-            if (move->promotedPiece == '.') {
-                board->PAWNS = clear_bit(to, board->PAWNS);
-            } else {
-                switch (move->promotedPiece) {
-                    case 'R': board->ROOKS = clear_bit(to, board->ROOKS); break;
-                    case 'N': board->KNIGHTS = clear_bit(to, board->KNIGHTS); break;
-                    case 'B': board->BISHOPS = clear_bit(to, board->BISHOPS); break;
-                    case 'Q': board->QUEENS = clear_bit(to, board->QUEENS); break;
-                    default: break;
-                }
-            }
-            board->PAWNS = set_bit(from, board->PAWNS, 1);
-            break;
-        case 'R': board->ROOKS = clear_bit(to, board->ROOKS); board->ROOKS = set_bit(from, board->ROOKS, 1); break;
-        case 'N': board->KNIGHTS = clear_bit(to, board->KNIGHTS); board->KNIGHTS = set_bit(from, board->KNIGHTS, 1); break;
-        case 'B': board->BISHOPS = clear_bit(to, board->BISHOPS); board->BISHOPS = set_bit(from, board->BISHOPS, 1); break;
-        case 'Q': board->QUEENS = clear_bit(to, board->QUEENS); board->QUEENS = set_bit(from, board->QUEENS, 1); break;
-        case 'K': board->KINGS = clear_bit(to, board->KINGS); board->KINGS = set_bit(from, board->KINGS, 1); break;
-        default: break;
-    }
-
-    // Restore the captured piece, if any
-    if (captured != '.') {
-        if (isupper(captured)) {
-            board->WHITE = set_bit(to, board->WHITE, 1);
-        } else {
-            board->BLACK = set_bit(to, board->BLACK, 1);
-        }
-
-        captured = toupper(captured);
-        switch (captured) {
-            case 'P': board->PAWNS = set_bit(to, board->PAWNS, 1); break;
-            case 'R': board->ROOKS = set_bit(to, board->ROOKS, 1); break;
-            case 'N': board->KNIGHTS = set_bit(to, board->KNIGHTS, 1); break;
-            case 'B': board->BISHOPS = set_bit(to, board->BISHOPS, 1); break;
-            case 'Q': board->QUEENS = set_bit(to, board->QUEENS, 1); break;
-            case 'K': board->KINGS = set_bit(to, board->KINGS, 1); break;
-            default: break;
-        }
-    }
-
-    board->turn = move->colour;
-    board->moves--;
-    display_board(board);
-    return 0;
+board_t * undo_move(board_stack_t * stack, board_t * board) {
+    board = pop(stack);
+    return board;
 }
 
 move_t * get_legal_move_side(board_t * board, int colour) {
@@ -1242,26 +1220,34 @@ int is_terminal(board_t * board) {
 // Board Functions End Here
 
 
-
 void play() {
     board_t * board = init_board();
-
+    board_stack_t*  stack = c_stack();
+    stack=push(stack,board);
+    printf("%d",stack->top);
+    display_board(stack->stack[0]);
     while(!(is_terminal(board))) {
         display_board(board);
-        printf("%d\n",board->turn);
+        //printf("%d\n",board->turn);
         move_t * moves = get_legal_move_side(board,board->turn);
 
-        for(int i=0;i<300;++i) {
+        for(int i=0;i<300;i++) {
             if(moves[i].from==0&&moves[i].to==0) {
                 break;
             }
-            printf("%d - From: %d To: %d\n",i,moves[i].from,moves[i].to);
+
+        printf("%d",i)
+
         }
-        printf("Enter your move: ");
-        int to_make;
         
-        make_move(board,&moves[0]);
-        undo_move(board);
+        make_move(board,&moves[0],stack);
+
+        
+        
+        
+        
+        board = undo_move(stack,board);
+        display_board(board);
         memset(moves,0,sizeof(moves));
         
     }
