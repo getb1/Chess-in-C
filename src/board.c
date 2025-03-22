@@ -765,9 +765,8 @@ hash_t init_zorbisttable(board_t * board) {
 
 board_t * init_from_FEN(char fen[]) {
     
-    board_t * board = NULL;
-    board = (board_t *) malloc(sizeof(board_t));
-    board = init_board(board);
+    
+    board_t * board = init_board();
 
     //board->zorbist_table = init_zorbisttable();
     board->WHITE = 0ULL;
@@ -1131,7 +1130,7 @@ board_t * undo_move(board_stack_t * stack, board_t * board) {
     board->moves = board_copy->moves;
     board->zorbist_hash = board_copy->zorbist_hash;
     board->zorbist_to_move = board_copy->zorbist_to_move;
-
+    free(board_copy);
     
     return board;
 

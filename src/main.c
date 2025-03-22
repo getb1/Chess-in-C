@@ -21,7 +21,9 @@ int main() {
 
     board_stack_t * s = c_stack();
 
-    printf("%d,",perft(board,5,s));
+    printf("%d,",perft(board,3,s));
+    free(s);
+    free(board);
     
     
 
