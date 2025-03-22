@@ -96,11 +96,13 @@ U64 get_legal_moves_for_rook_at_sqaure(board_t *board, int pos, int colour);
 U64 get_legal_moves_for_king_at_sqaure(board_t *board, int pos, int colour);
 U64 get_legal_moves_for_pawn_at_sqaure(board_t * board,int pos, int colour);
 U64 get_legal_moves_for_side_bitboards(board_t * board,int colour);
-move_t * get_legal_move_side(board_t * board, int colour);
+move_t * get_legal_move_side(board_t * board, int colour, move_t * legal_moves);
 int make_move(board_t* board,move_t * move,board_stack_t * stack);
 int coordinates_to_number(int rank, int file);
 void play();
 board_t * undo_move(board_stack_t * stack, board_t * board);
+
+void display_stack(board_stack_t *stack);
 board_stack_t * c_stack();
 
 #endif

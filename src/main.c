@@ -21,7 +21,7 @@ int main() {
 
     board_stack_t * s = c_stack();
 
-    play();
+    printf("%d,",perft(board,5,s));
     
     
 

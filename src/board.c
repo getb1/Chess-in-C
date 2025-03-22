@@ -11,17 +11,8 @@
 board_t * copy_board(board_t * original) {
     
 
-    if (original == NULL) {
-        return NULL; // Handle invalid input
-    }
-
-    // Allocate memory for the new board
-    board_t *copy = (board_t *)malloc(sizeof(board_t));
-    if (copy == NULL) {
-        return NULL; // Memory allocation failed
-    }
-
-    // Copy scalar fields directly
+    
+    board_t* copy = (board_t*)malloc(sizeof(board_t));
     copy->WHITE = original->WHITE;
     copy->BLACK = original->BLACK;
     copy->PAWNS = original->PAWNS;
@@ -30,15 +21,15 @@ board_t * copy_board(board_t * original) {
     copy->BISHOPS = original->BISHOPS;
     copy->QUEENS = original->QUEENS;
     copy->KINGS = original->KINGS;
+
+    // Game state
     copy->enPassantsq = original->enPassantsq;
     copy->moves = original->moves;
     copy->turn = original->turn;
     copy->halfMoveCLock = original->halfMoveCLock;
     copy->castleFlags = original->castleFlags;
-    copy->zorbist_hash = original->zorbist_hash;
-    copy->zorbist_to_move = original->zorbist_to_move;
-
     return copy;
+
 }
 int on_board(int pos) {
     if(pos>=0&&pos<64) {
@@ -950,6 +941,7 @@ board_t * pop(board_stack_t * stack) {
 }
 
 int make_move(board_t* board, move_t * move, board_stack_t * stack) {
+    push(stack,board);
     int from = move->from;
     int to = move->to;
     char piece = get_piece_at_square(board,from);
@@ -1098,24 +1090,57 @@ int make_move(board_t* board, move_t * move, board_stack_t * stack) {
 
     move->capturedPiece=to_piece;
     
-    push(stack,board);
+    
     
     
     return 0;
 
 }
 
-
-
-board_t * undo_move(board_stack_t * stack, board_t * board) {
-    board = pop(stack);
-    return board;
+void display_stack(board_stack_t *stack) {
+    for (int i = 0; i < stack->top; i++) {
+        // Print the stack position for clarity
+        printf("Stack position %d:\n", i);
+        
+        // Display the board state using the existing function
+        display_board(stack->stack[i]);
+        
+        // Display whose turn it is based on the turn field
+        printf("Turn: %s\n", stack->stack[i]->turn ? "White" : "Black");
+        
+        // Add a newline for separation between boards
+        printf("\n");
+    }
 }
 
-move_t * get_legal_move_side(board_t * board, int colour) {
+board_t * undo_move(board_stack_t * stack, board_t * board) {
+    board_t * board_copy = pop(stack);
 
-    static move_t legal_moves[300];
-    memset(legal_moves,0,sizeof(legal_moves));
+    board->WHITE = board_copy->WHITE;
+    board->BLACK = board_copy->BLACK;
+    board->PAWNS = board_copy->PAWNS;
+    board->ROOKS = board_copy->ROOKS;
+    board->KNIGHTS = board_copy->KNIGHTS;
+    board->BISHOPS = board_copy->BISHOPS;
+    board->QUEENS = board_copy->QUEENS;
+    board->KINGS = board_copy->KINGS;
+    board->enPassantsq = board_copy->enPassantsq;
+    board->turn = board_copy->turn;
+    board->castleFlags = board_copy->castleFlags;
+    board->halfMoveCLock = board_copy->halfMoveCLock;
+    board->moves = board_copy->moves;
+    board->zorbist_hash = board_copy->zorbist_hash;
+    board->zorbist_to_move = board_copy->zorbist_to_move;
+
+    
+    return board;
+
+}
+
+move_t * get_legal_move_side(board_t * board, int colour, move_t * legal_moves) {
+
+    
+    memset(legal_moves, 0, sizeof(move_t)*300);
     int move_count = 0;
 
     U64 colour_board = colour ? board->WHITE : board->BLACK;
@@ -1191,7 +1216,8 @@ move_t * get_legal_move_side(board_t * board, int colour) {
 
 int checkmate(board_t * board) {
     if(in_check(board, board->turn)) {
-        move_t * moves = get_legal_move_side(board,board->turn);
+        move_t moves[300];
+    get_legal_move_side(board, board->turn, moves);
     if(moves[0].from==0&&moves[0].to==0) {
         return 1;
     }
@@ -1204,7 +1230,8 @@ int stalemate(board_t * board) {
     if(in_check(board,board->turn)) {
         return 0;
     }
-    move_t * moves = get_legal_move_side(board,board->turn);
+    move_t moves[300];
+    get_legal_move_side(board, board->turn, moves);
     if(moves[0].from==0&&moves[0].to==0||board->halfMoveCLock>=50) {
         return 1;
     }
@@ -1223,30 +1250,31 @@ int is_terminal(board_t * board) {
 void play() {
     board_t * board = init_board();
     board_stack_t*  stack = c_stack();
-    stack=push(stack,board);
-    printf("%d",stack->top);
-    display_board(stack->stack[0]);
+    
     while(!(is_terminal(board))) {
         display_board(board);
         //printf("%d\n",board->turn);
-        move_t * moves = get_legal_move_side(board,board->turn);
+        move_t moves[300];
+        get_legal_move_side(board, board->turn, moves);
 
         for(int i=0;i<300;i++) {
             if(moves[i].from==0&&moves[i].to==0) {
                 break;
             }
 
-        printf("%d",i)
+        printf("%d",i);
 
         }
         
         make_move(board,&moves[0],stack);
 
+        display_stack(stack);
         
         
         
         
         board = undo_move(stack,board);
+        printf("%d",board->turn);
         display_board(board);
         memset(moves,0,sizeof(moves));
         
