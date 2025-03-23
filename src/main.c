@@ -13,15 +13,16 @@
 
 int main() {
     
-    char fen[] = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    char fen[] = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 ";
     
     board_t * board = init_from_FEN(fen);
+    display_board(board);
 
     //play();
     //move_test();
     board_stack_t * s = c_stack();
     
-    printf("%d,",perft(board,8,s));
+    printf("%d,",perft(board,6,s));
     free(s);
     free(board);
     

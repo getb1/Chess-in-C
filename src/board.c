@@ -521,7 +521,7 @@ U64 get_legal_moves_for_rook_at_sqaure(board_t *board, int pos, int colour) {
             board->BLACK = original_black;
         }
     }
-
+    
     return legal_moves;
 }
 
@@ -630,6 +630,7 @@ U64 get_legal_moves_for_king_at_sqaure(board_t *board, int pos, int colour) {
             if(is_square_empty(board,rook_side_file_a)&&is_square_empty(board,rook_side_file_b)) {
                 if(!((get_bit(attack_map,coordinates_to_number(king_rank,rook_side_file_a))&&get_bit(attack_map,coordinates_to_number(king_rank,rook_side_file_b))))) {
                     legal_moves = set_bit(coordinates_to_number(king_rank,rook_side_file_b),legal_moves,1);
+
                 }
             }
         }
@@ -802,7 +803,7 @@ board_t * init_from_FEN(char fen[]) {
     board->QUEENS = 0ULL;
     board->KINGS = 0ULL;
     board->enPassantsq=-1;
-    board->castleFlags=0;
+    board->castleFlags=0ULL;
 
     char * token = strtok(fen, " ");
     
@@ -854,15 +855,17 @@ board_t * init_from_FEN(char fen[]) {
     }
 
     board->turn = turn_to_int(turn[0]);
+    
     // choose the correct turn depending on the charachter and add correct castle flags
-    int bits[4] = {0,1,2,3};
-    char symbols[] = "qkQK";
-
+    int bits[4] = {3,2,1,0};
+    char symbols[] = "QKqk";
+    
     for(int i=0;i<4;i++) {
         if(strchr(castle, symbols[i])) {
         board->castleFlags = set_bit(i, board->castleFlags, 1);}
     }
     // add the rst of the data to the board structure
+    
     board->enPassantsq=char_to_intsq(enpass);
     board->halfMoveCLock = *halfmove_clock-'0';
     board->moves = *moves-'0';
@@ -1091,7 +1094,9 @@ int make_move(board_t* board, move_t * move, board_stack_t * stack) {
     switch (piece){
     case 'P' : board->PAWNS = clear_bit(from,board->PAWNS); 
     if(move->promotedPiece!='.'){
-        switch(move->promotedPiece) {
+        
+        switch(toupper(move->promotedPiece)) {
+
             case 'R' : board->ROOKS = set_bit(to,board->ROOKS,1); break;
             case 'N' : board->KNIGHTS = set_bit(to,board->KNIGHTS,1); break;
             case 'B' : board->BISHOPS = set_bit(to,board->BISHOPS,1); break;
@@ -1173,7 +1178,7 @@ move_t * get_legal_move_side(board_t * board, int colour, move_t * legal_moves) 
         if(colour) {
             switch(piece) {
                 case 'P' : possible_moves = get_legal_moves_for_pawn_at_sqaure(board,msb_pos,colour); break;
-                case 'R' : possible_moves = get_legal_moves_for_rook_at_sqaure(board,msb_pos,colour); break;
+                case 'R' : possible_moves = get_legal_moves_for_rook_at_sqaure(board,msb_pos,colour);break;
                 case 'N' : possible_moves = get_legal_moves_for_knight_at_square(board,msb_pos,colour); break;
                 case 'B' : possible_moves = get_legal_moves_for_bishop_at_sqaure(board,msb_pos,colour); break;
                 case 'Q' : possible_moves = get_legal_moves_for_queen_at_square(board,msb_pos,colour); break;
@@ -1192,6 +1197,7 @@ move_t * get_legal_move_side(board_t * board, int colour, move_t * legal_moves) 
             }
         }
         int possible_move_count = __builtin_popcountll(possible_moves);
+        
         int from=msb_pos;
         int to = find_msb(possible_moves);
         for(int j=0;j<possible_move_count;++j) {
@@ -1199,14 +1205,14 @@ move_t * get_legal_move_side(board_t * board, int colour, move_t * legal_moves) 
             legal_moves[move_count].to = to;
             legal_moves[move_count].piece = piece;
             legal_moves[move_count].colour = colour;
-
+            
             if(piece=='P'||piece=='p') {
                 if((to<8&&!(colour))||(to>55&&colour)) {
                     legal_moves[move_count].promotedPiece = colour ? 'Q' : 'q';
                     move_count++;
                     char pieces[] = "rnb";
                     for(int k=0;k<3;++k) {
-                        legal_moves[move_count].promotedPiece = pieces[k];
+                        legal_moves[move_count].promotedPiece = colour ? toupper(pieces[k]) : pieces[k];
                         legal_moves[move_count].from = from;
                         legal_moves[move_count].to = to;
                         legal_moves[move_count].piece = piece;
@@ -1274,7 +1280,7 @@ void play() {
     
     while(!(is_terminal(board))) {
         display_board(board);
-        //printf("%d\n",board->turn);
+       
         move_t moves[300];
         get_legal_move_side(board, board->turn, moves);
 
@@ -1290,7 +1296,7 @@ void play() {
         }
         int m;
         scanf("%d",&m);
-        printf("%d",m);
+        
         make_move(board,&moves[m],stack);
         memset(moves,0,sizeof(moves));
         
@@ -1299,35 +1305,34 @@ void play() {
 
 void move_test() {
 
-    board_t * board = init_board();
+    char fen[] = "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8";
+    
+    board_t * board = init_from_FEN(fen);
+    display_board(board);
     board_stack_t*  stack = c_stack();
+    move_t moves[300];
 
-    for(int k=0; k<20;++k) {
-        move_t moves_b[300];
-        get_legal_move_side(board, board->turn, moves_b);
-        make_move(board, &moves_b[k],stack);
-
-        for(int j=0;j<20;++j) {
-           move_t moves_a[300];
-            get_legal_move_side(board, board->turn, moves_a); 
-            make_move(board, &moves_a[j],stack);
-            move_t moves[300];
-            get_legal_move_side(board, board->turn, moves);
-            display_board(board);
-            for(int i=0;i<300;i++) {
-                if(moves[i].from==0&&moves[i].to==0) {
-                    break;
-                }
-
-                printf("%d From: %d To: %d PIece:%c Capture %c\n", i+1,moves[i].from, moves[i].to,moves[i].piece,moves[i].capturedPiece);
-                }
-            int m;
-            scanf("%d",&m);
-            undo_move(stack,board);
+    get_legal_move_side(board,board->turn, moves);
+    for(int i =1;i<44;i++) {
+        make_move(board,&moves[i],stack);
+        display_board(board);
+        move_t move_a[300];
+        get_legal_move_side(board,board->turn,move_a);
+        display_board(board);
+        for(int j=0;j<300;j++) {
+            if(move_a[j].to==0&&move_a[j].from==0) {
+                break;
             }
-            undo_move(stack,board);
 
-    }
+            printf("%d From:%d, To:%d, Caputre:%c\n",j,move_a[j].from,move_a[j].to,move_a[j].capturedPiece);
+            
+
+        }
+        int m;
+        scanf("%d",&m);
+        board=undo_move(stack,board);
+        display_board(board);
+    }    
 
 
 }
