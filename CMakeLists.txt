@@ -10,7 +10,7 @@ endif()
 
 # Set Debug flags
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -g")
-
+set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
 # Include directories
 include_directories(${CMAKE_SOURCE_DIR}/src)
 

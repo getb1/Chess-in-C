@@ -1305,7 +1305,7 @@ void play() {
 
 void move_test() {
 
-    char fen[] = "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8";
+    char fen[] = "rnbk1b1r/pp3ppp/2p5/4q1B1/4n3/8/PPP2PPP/2KR1BNR b - - 1 10";
     
     board_t * board = init_from_FEN(fen);
     display_board(board);
@@ -1313,26 +1313,19 @@ void move_test() {
     move_t moves[300];
 
     get_legal_move_side(board,board->turn, moves);
-    for(int i =1;i<44;i++) {
-        make_move(board,&moves[i],stack);
-        display_board(board);
-        move_t move_a[300];
-        get_legal_move_side(board,board->turn,move_a);
-        display_board(board);
-        for(int j=0;j<300;j++) {
-            if(move_a[j].to==0&&move_a[j].from==0) {
-                break;
-            }
-
-            printf("%d From:%d, To:%d, Caputre:%c\n",j,move_a[j].from,move_a[j].to,move_a[j].capturedPiece);
+    display_board(board);
+    for(int i =0;i<300;i++) {
+        if(moves[i].to==0&&moves[i].from==0) {
+            break;
+        }
+        
+            printf("%d From:%d, To:%d, Caputre:%c\n",i,moves[i].from,moves[i].to,moves[i].capturedPiece);
             
 
         }
-        int m;
-        scanf("%d",&m);
-        board=undo_move(stack,board);
-        display_board(board);
+        
+        
+        
     }    
 
 
-}
