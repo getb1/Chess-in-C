@@ -101,7 +101,7 @@ int make_move(board_t* board,move_t * move,board_stack_t * stack);
 int coordinates_to_number(int rank, int file);
 void play();
 board_t * undo_move(board_stack_t * stack, board_t * board);
-
+void move_test();
 void display_stack(board_stack_t *stack);
 board_stack_t * c_stack();
 

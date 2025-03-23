@@ -18,10 +18,10 @@ int main() {
     board_t * board = init_from_FEN(fen);
 
     //play();
-
+    //move_test();
     board_stack_t * s = c_stack();
-
-    printf("%d,",perft(board,3,s));
+    
+    printf("%d,",perft(board,8,s));
     free(s);
     free(board);
     
