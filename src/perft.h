@@ -6,4 +6,5 @@
 
 int perft(board_t * board, int depth, board_stack_t * stack);
 void p(board_t * board, int depth);
+void perft_divide(board_t *board, int depth);
 #endif
