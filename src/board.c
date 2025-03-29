@@ -643,7 +643,7 @@ U64 get_legal_moves_for_king_at_sqaure(board_t *board, int pos, int colour) {
             int queen_side_file_b = 4;
             int queen_side_file_c = 6;
             if(is_square_empty(board,queen_side_file_a)&&is_square_empty(board,queen_side_file_b)&&is_square_empty(board,queen_side_file_c)) {
-            if(!((get_bit(attack_map,coordinates_to_number(king_rank,queen_side_file_a))||get_bit(attack_map,coordinates_to_number(king_rank,queen_side_file_b)||get_bit(attack_map,coordinates_to_number(king_rank,queen_side_file_c)))))) {
+            if(!((get_bit(coordinates_to_number(king_rank,queen_side_file_a),attack_map)||get_bit(coordinates_to_number(king_rank,queen_side_file_b),attack_map)||get_bit(coordinates_to_number(king_rank,queen_side_file_c),attack_map)))) {
                 legal_moves = set_bit(coordinates_to_number(king_rank,queen_side_file_a),legal_moves,1);
             }}
         
@@ -1045,10 +1045,12 @@ int make_move(board_t* board, move_t * move, board_stack_t * stack) {
                 board->ROOKS = clear_bit(0,board->ROOKS);
                 board->ROOKS = set_bit(2,board->ROOKS,1);
                 board->WHITE = set_bit(2,board->WHITE,1);
+                board->WHITE = clear_bit(0,board->WHITE);
             } else if(to==5) {
                 board->ROOKS = clear_bit(7,board->ROOKS);
                 board->ROOKS = set_bit(4,board->ROOKS,1);
                 board->WHITE = set_bit(4,board->WHITE,1);
+                board->WHITE = clear_bit(7,board->WHITE);
             }
         }
     } else if(piece=='k') {
@@ -1059,10 +1061,12 @@ int make_move(board_t* board, move_t * move, board_stack_t * stack) {
                 board->ROOKS = clear_bit(56,board->ROOKS);
                 board->ROOKS = set_bit(58,board->ROOKS,1);
                 board->BLACK = set_bit(58,board->BLACK,1);
+                board->BLACK = clear_bit(56,board->BLACK);
             } else if(to==61) {
                 board->ROOKS = clear_bit(63,board->ROOKS);
                 board->ROOKS = set_bit(60,board->ROOKS,1);
                 board->BLACK = set_bit(60,board->BLACK,1);
+                board->BLACK = clear_bit(63,board->BLACK);
             }
         }
     }
@@ -1124,12 +1128,14 @@ int make_move(board_t* board, move_t * move, board_stack_t * stack) {
 
     board->PAWNS = set_bit(to,board->PAWNS,1);} break;
     case 'R' : board->ROOKS = clear_bit(from,board->ROOKS); board->ROOKS = set_bit(to,board->ROOKS,1); break;
-    case 'N' : board->KNIGHTS = clear_bit(from,board->KNIGHTS); board->KNIGHTS = set_bit(to,board->KNIGHTS,1); break;
+    case 'N' : board->KNIGHTS = clear_bit(from,board->KNIGHTS); board->KNIGHTS = set_bit(to,board->KNIGHTS,1);break;
     case 'B' : board->BISHOPS = clear_bit(from,board->BISHOPS); board->BISHOPS = set_bit(to,board->BISHOPS,1); break;
     case 'Q' : board->QUEENS = clear_bit(from,board->QUEENS); board->QUEENS = set_bit(to,board->QUEENS,1); break;
     case 'K' : board->KINGS = clear_bit(from,board->KINGS); board->KINGS = set_bit(to,board->KINGS,1); break;
     default : break;
     }
+
+    
     board->turn = 1-board->turn;
     board->moves++;
 

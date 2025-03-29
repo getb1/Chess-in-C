@@ -53,3 +53,48 @@ void perft_divide(board_t *board, int depth) {
     }
     printf("Total: %d\n", total);
 }
+
+
+void compare_boards(board_t *board1, board_t *board2) {
+    if (board1->WHITE != board2->WHITE) {
+        printf("White pieces differ\n");
+        display_bitBoard(board1->WHITE);
+        display_bitBoard(board2->WHITE);
+        printf("\n");
+    }
+    if (board1->BLACK != board2->BLACK) {
+        printf("Black pieces differ\n");
+    }
+    if (board1->PAWNS != board2->PAWNS) {
+        printf("Pawns differ\n");
+    }
+    if (board1->ROOKS != board2->ROOKS) {
+        printf("Rooks differ\n");
+    }
+    if (board1->KNIGHTS != board2->KNIGHTS) {
+        printf("Knights differ\n");
+    }
+    if (board1->BISHOPS != board2->BISHOPS) {
+        printf("Bishops differ\n");
+    }
+    if (board1->QUEENS != board2->QUEENS) {
+        printf("Queens differ\n");
+    }
+    if (board1->KINGS != board2->KINGS) {
+        printf("Kings differ\n");
+    }
+
+    if (board1->castleFlags != board2->castleFlags) {
+        printf("Castle flags differ\n");
+    }
+    if (board1->enPassantsq != board2->enPassantsq) {
+        printf("En passant squares differ\n");
+    }
+    if (board1->turn != board2->turn) {
+        printf("Turn differs\n");
+    }
+    if (board1->halfMoveCLock != board2->halfMoveCLock) {
+        printf("Half move clock differs\n");
+    }
+    
+}

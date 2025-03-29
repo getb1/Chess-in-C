@@ -16,15 +16,15 @@ int main() {
     char fen[] = "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8";
     
     board_t * board = init_from_FEN(fen);
-    move_t moves[300];
-    board_stack_t * stack = c_stack();
-    get_legal_move_side(board,board->turn, moves);
-    make_move(board, &moves[41], stack);
-    display_board(board);
+
+    char fen_2[] = "rnbq1k1r/pp1Pbppp/2p5/8/2B5/7n/PPP1N1PP/RNBQ1RK1 w - - 3 9";
+
+    board_t * board_2 = init_from_FEN(fen_2);
+
     
 
     //play();
-    perft_divide(board,2);
+    perft_divide(board,5);
     board_stack_t * s = c_stack();
     
     free(s);
