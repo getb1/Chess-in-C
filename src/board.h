@@ -59,6 +59,8 @@ typedef struct BOARD {
     U64 KING_MOVES[64];
 
     
+    U64 ROOK_ATTACKS[64][16384];
+    
 } board_t;
 
 
@@ -104,5 +106,6 @@ board_t * undo_move(board_stack_t * stack, board_t * board);
 void move_test();
 void display_stack(board_stack_t *stack);
 board_stack_t * c_stack();
+void generate_blocker_boards_rooks(board_t * board, int position);
 
 #endif

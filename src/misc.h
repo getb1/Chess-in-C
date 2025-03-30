@@ -10,4 +10,5 @@ U64 toggle_bit(int pos, U64 number);
 U64 clear_bit(int pos, U64 number);
 int coordinates_to_number(int rank, int file);
 char * int_to_char_sq(int sq);
+char * move_to_string(move_t * move);
 #endif

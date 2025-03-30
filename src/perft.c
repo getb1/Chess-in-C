@@ -55,6 +55,7 @@ void perft_divide(board_t *board, int depth) {
 }
 
 
+
 void compare_boards(board_t *board1, board_t *board2) {
     if (board1->WHITE != board2->WHITE) {
         printf("White pieces differ\n");

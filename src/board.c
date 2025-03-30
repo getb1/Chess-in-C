@@ -124,15 +124,15 @@ int turn_to_int(char turn) {
 }
 
 int char_to_intsq(char sq[]) {
-
+    
     if(strlen(sq)!=2) {return -1;}
 
-    int file=sq[0]-'a';
-    int rank=8-(sq[1]-'0');
+    int file = 'h'-tolower(sq[0]);
+    
+    int rank = sq[1]-'1';
+    
 
-    if(file<0||file>7 || rank<0||rank>7) {return -1;}
-
-    return rank*8 + file;
+    return coordinates_to_number(rank,file);
 }
 
 int is_square_empty(board_t * board, int square) {
@@ -159,6 +159,12 @@ U64 precomputePawnMove(int square, int direction) {
     }
     
     return 0ULL;
+}
+
+U64 remove_edge_squares(U64 bitboard) {
+    U64 mask = 0x007E7E7E7E7E7E00; // Mask to remove edge squares
+    
+    return bitboard & mask;
 }
 
 void precomputePawnMoves(board_t * board) {
@@ -266,6 +272,26 @@ void precompute_king_moves(board_t * board) {
     }
 }
 
+void generate_blocker_boards_rooks(board_t * board, int position) {
+    
+    
+    int number_of_patterns = 1<<__builtin_popcountll(board->ROOK_MOVES[position]);
+    U64 blocker_patterns[number_of_patterns];
+
+    for(int pattern=0;pattern<number_of_patterns;++pattern) {
+        blocker_patterns[pattern]=0ULL;
+        
+        for(int bitIndex=0; bitIndex<__builtin_popcountll(board->ROOK_MOVES[position]);++bitIndex) {
+            int bit = (pattern>>bitIndex)&1;
+            if(bit) {
+                blocker_patterns[pattern]|=set_bit(bitIndex,blocker_patterns[pattern],1);
+            }
+            
+        }
+        
+}
+display_bitBoard(blocker_patterns[7]);
+}
 U64 get_attacks_for_knight_at_square(board_t * board,int pos,int colour) {
     U64 colour_board = colour ? board->WHITE : board->BLACK;
     //colour_board = ~colour_board;
@@ -627,7 +653,7 @@ U64 get_legal_moves_for_king_at_sqaure(board_t *board, int pos, int colour) {
             
             int rook_side_file_a = 2;
             int rook_side_file_b = 1;
-            if(is_square_empty(board,rook_side_file_a)&&is_square_empty(board,rook_side_file_b)) {
+            if(is_square_empty(board,coordinates_to_number(king_rank,rook_side_file_a))&&is_square_empty(board,coordinates_to_number(king_rank,rook_side_file_b))) {
                 if((get_bit(coordinates_to_number(king_rank,rook_side_file_a),attack_map)==0)&&(get_bit(coordinates_to_number(king_rank,rook_side_file_b),attack_map)==0)) {
                     
                         legal_moves = set_bit(coordinates_to_number(king_rank,rook_side_file_b),legal_moves,1);
@@ -642,13 +668,12 @@ U64 get_legal_moves_for_king_at_sqaure(board_t *board, int pos, int colour) {
             int queen_side_file_a = 5;
             int queen_side_file_b = 4;
             int queen_side_file_c = 6;
-            if(is_square_empty(board,queen_side_file_a)&&is_square_empty(board,queen_side_file_b)&&is_square_empty(board,queen_side_file_c)) {
-            if(!((get_bit(coordinates_to_number(king_rank,queen_side_file_a),attack_map)||get_bit(coordinates_to_number(king_rank,queen_side_file_b),attack_map)||get_bit(coordinates_to_number(king_rank,queen_side_file_c),attack_map)))) {
+            if(is_square_empty(board,coordinates_to_number(king_rank,queen_side_file_a))&&is_square_empty(board,coordinates_to_number(king_rank,queen_side_file_b))&&is_square_empty(board,coordinates_to_number(king_rank,queen_side_file_c))) {
+            if(!((get_bit(coordinates_to_number(king_rank,queen_side_file_a),attack_map)||get_bit(coordinates_to_number(king_rank,queen_side_file_b),attack_map)))) {
                 legal_moves = set_bit(coordinates_to_number(king_rank,queen_side_file_a),legal_moves,1);
             }}
         
         }
-    
     
     return legal_moves;
 }
@@ -737,7 +762,7 @@ U64 get_legal_moves_for_pawn_at_sqaure(board_t * board,int pos, int colour) {
 }
 
     
-    return clear_bit(63,legal_moves);
+    return legal_moves;
 
 }
 
@@ -874,7 +899,7 @@ board_t * init_from_FEN(char fen[]) {
     board->halfMoveCLock = *halfmove_clock-'0';
     board->moves = *moves-'0';
     init_zorbisttable(board);
-
+    
     return board;
 }
 
@@ -985,6 +1010,7 @@ int make_move(board_t* board, move_t * move, board_stack_t * stack) {
 
     if(piece=='P'||piece=='p') {
         // If the pawn is moved the nreset the half move clock
+        int prev=-1;
         board->halfMoveCLock=0;
         // If we are moving 2 squares then change the enpassant square otherwise set to -1
         if(from-to==16) {
@@ -992,8 +1018,11 @@ int make_move(board_t* board, move_t * move, board_stack_t * stack) {
         } else if(from-to==-16) {
             board->enPassantsq = from+8;
         } else {
+            prev = board->enPassantsq;
             board->enPassantsq = -1;
+            
         }
+        
         // handle captures
         if(get_file(from) - get_file(to)==-1 || get_file(from) - get_file(to)==1) {
             if(get_piece_at_square(board,to)=='.') {
@@ -1008,12 +1037,24 @@ int make_move(board_t* board, move_t * move, board_stack_t * stack) {
                 char captured_pawn = get_piece_at_square(board,capturedSQ);
                 move->capturedPiece=captured_pawn;
                 move->enPassantCaptureSq=capturedSQ;
-                if (isupper(captured_pawn)) {
+                if (isupper(captured_pawn)||(to==prev&&board->turn==0)) {
                     board->WHITE = clear_bit(capturedSQ, board->WHITE);
                     board->PAWNS = clear_bit(capturedSQ, board->PAWNS);
-                } else {
+                    
+                    if(to==prev) {
+                        
+                        board->WHITE = clear_bit(prev+8, board->WHITE);
+                        board->PAWNS = clear_bit(prev+8, board->PAWNS);
+                    }
+                } else if(isupper(captured_pawn)==0||(to==prev&&board->turn==1)) {
                     board->BLACK = clear_bit(capturedSQ, board->BLACK);
                     board->PAWNS = clear_bit(capturedSQ, board->PAWNS);
+                    
+                    if(to==prev) {
+                        board->BLACK = clear_bit(prev-8, board->BLACK);
+                        board->PAWNS = clear_bit(prev-8, board->PAWNS);
+                        
+                    }
                 }
             } else {
                 move->enPassantCaptureSq = -1;
