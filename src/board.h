@@ -1,6 +1,6 @@
 #ifndef __BOARD_H__
 #define __BOARD_H__
-
+#include <stdlib.h>
 typedef unsigned long long int U64;
 typedef __uint64_t hash_t;
 
@@ -59,12 +59,16 @@ typedef struct BOARD {
     U64 KING_MOVES[64];
 
     
+
+    U64 *ROOK_BLOCKERS[64];
+
     U64 ROOK_MAGICS[64];
     U64 BISHOP_MAGICS[64];
     U64 ROOK_MASKS[64];
     U64 BISHOP_MASKS[64];
     U64 ROOK_ATTACKS[64][4096];
     U64 BISHOP_ATTACKS[64][512];
+
     
 } board_t;
 
@@ -111,6 +115,6 @@ board_t * undo_move(board_stack_t * stack, board_t * board);
 void move_test();
 void display_stack(board_stack_t *stack);
 board_stack_t * c_stack();
-void generate_blocker_boards_rooks(board_t * board, int position);
+void generate_blocker_boards_rooks(board_t * board);
 
 #endif

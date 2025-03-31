@@ -13,6 +13,12 @@ void tearDown(void) {
     // Clean up resources if needed
 }
 
+void magic_number_rook_tests(void) {
+    board_t * board = init_board();
+    generate_blocker_boards_rooks(board);
+    
+    free(board);
+}
 
 
 void test_move_generation(void) {
