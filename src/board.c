@@ -6,24 +6,7 @@
 #include "board.h"
 #include "misc.h"
 
-U64 get_rook_mask(int sq) {
-    U64 mask = 0ULL;
-    int r = sq/8, f = sq%8;
-    
-    for(int i=r+1; i<7; i++) mask |= 1ULL << (i*8 + f);
-    for(int i=r-1; i>0; i--) mask |= 1ULL << (i*8 + f);
-    for(int j=f+1; j<7; j++) mask |= 1ULL << (r*8 + j);
-    for(int j=f-1; j>0; j--) mask |= 1ULL << (r*8 + j);
-    display_bitBoard(mask);
-    return mask;
-}
 
-
-void generate_rook_masks(board_t * board) {
-    for(int i=0;i<64;++i) {
-        board->ROOK_MASKS[i] = get_rook_mask(i);
-    }
-}
 
 board_t * copy_board(board_t * original) {
     
@@ -48,6 +31,7 @@ board_t * copy_board(board_t * original) {
     return copy;
 
 }
+
 int on_board(int pos) {
     if(pos>=0&&pos<64) {
         return 1;
@@ -65,6 +49,7 @@ int on_board_rank_file(int rank, int file) {
 int get_rank(int sq) {
     return (int) sq /8;
 }
+
 int get_file(int sq) {
     return sq%8;
 }
@@ -178,12 +163,6 @@ U64 precomputePawnMove(int square, int direction) {
     return 0ULL;
 }
 
-U64 remove_edge_squares(U64 bitboard) {
-    U64 mask = 0x007E7E7E7E7E7E00; // Mask to remove edge squares
-    
-    return bitboard & mask;
-}
-
 void precomputePawnMoves(board_t * board) {
 
     for(int i=0;i<64;++i) {
@@ -268,6 +247,7 @@ void precompute_queen_moves(board_t * board) {
     }
 }
 
+
 void precompute_king_moves(board_t * board) {
     int directions[8][2] = {{-1,-1},{0,-1},{1,-1},{1,0},{1,1},{0,1},{-1,1},{-1,0}};
     int rank,file,d_file,d_rank,new_file,new_rank;
@@ -291,17 +271,12 @@ void precompute_king_moves(board_t * board) {
 
 void generate_blocker_boards_rooks(board_t *board) {
     for(int i = 0; i < 64; ++i) {
-        U64 move = board->ROOK_MOVES[i];
+        U64 move = board->ROOK_MOVES[i]&board->ROOK_MASKS[i];
         int num_bits = __builtin_popcountll(move);
         U64 num_patterns = 1ULL << num_bits;
         
         U64 *blockers = (U64 *)malloc(num_patterns * sizeof(U64));
-        if(blockers == NULL) {
-            fprintf(stderr, "Memory allocation failed for square %d\n", i);
-            exit(EXIT_FAILURE);
-        }
-
-        
+    
         for(int j = 0; j < num_patterns; ++j) {
             blockers[j] = 0ULL;
             U64 temp = move;
@@ -320,7 +295,14 @@ void generate_blocker_boards_rooks(board_t *board) {
         board->ROOK_BLOCKERS[i] = blockers;
     }
     
-    display_bitBoard(board->ROOK_BLOCKERS[36][15]);
+    
+}
+
+void generate_attack_table(board_t * board) {
+    for(int i=0;i<64;++i) {
+        U64 r_mask = board->ROOK_MASKS[i];
+
+    }
 }
 
 U64 get_attacks_for_knight_at_square(board_t * board,int pos,int colour) {
@@ -934,6 +916,10 @@ board_t * init_from_FEN(char fen[]) {
     return board;
 }
 
+int transform(U64 occ, U64 magic, int bits) {
+    return (int)((occ * magic) >> (64 - bits));
+}
+
 board_t * init_board() {
     board_t * new = NULL;
     new = (board_t *) malloc(sizeof(board_t));
@@ -965,6 +951,12 @@ board_t * init_board() {
     precompute_queen_moves(new);
     precompute_king_moves(new);
     
+    
+    // Precomputed otherwise it would take 30s to load on a raspberry pi
+    
+
+
+
     return new;
     
 }
@@ -1218,22 +1210,6 @@ int make_move(board_t* board, move_t * move, board_stack_t * stack) {
     
     return 0;
 
-}
-
-void display_stack(board_stack_t *stack) {
-    for (int i = 0; i < stack->top; i++) {
-        // Print the stack position for clarity
-        printf("Stack position %d:\n", i);
-        
-        // Display the board state using the existing function
-        display_board(stack->stack[i]);
-        
-        // Display whose turn it is based on the turn field
-        printf("Turn: %s\n", stack->stack[i]->turn ? "White" : "Black");
-        
-        // Add a newline for separation between boards
-        printf("\n");
-    }
 }
 
 board_t * undo_move(board_stack_t * stack, board_t * board) {

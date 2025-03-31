@@ -1,6 +1,7 @@
 #ifndef __BOARD_H__
 #define __BOARD_H__
 #include <stdlib.h>
+#include <stdint.h>
 typedef unsigned long long int U64;
 typedef __uint64_t hash_t;
 
@@ -116,5 +117,7 @@ void move_test();
 void display_stack(board_stack_t *stack);
 board_stack_t * c_stack();
 void generate_blocker_boards_rooks(board_t * board);
-
+int checkmate(board_t * board);
+int stalemate(board_t * board);
+int is_terminal(board_t * board);
 #endif

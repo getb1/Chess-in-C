@@ -7,7 +7,8 @@
 #include "board.h"
 #include "misc.h"
 #include "perft.h"
-#include "magic_numbers.h"
+#include "search.h"
+
 
 #define BOARD_SIZE 64
 #define START "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 "
@@ -16,10 +17,9 @@ int main() {
     
     //Magic bitboard test
     board_t * board = init_board();
-    generate_blocker_boards_rooks(board);
-    
-    find_magic_number_for_rooks(10,board);
-    
+   
+    move_t * move = move_find_best_move(board, 4);
+    printf("Best move: %s\n",move_to_string(move));
     
     
     return 0;
