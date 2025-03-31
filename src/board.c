@@ -272,26 +272,40 @@ void precompute_king_moves(board_t * board) {
     }
 }
 
-void generate_blocker_boards_rooks(board_t * board, int position) {
-    
-    
-    int number_of_patterns = 1<<__builtin_popcountll(board->ROOK_MOVES[position]);
-    U64 blocker_patterns[number_of_patterns];
-
-    for(int pattern=0;pattern<number_of_patterns;++pattern) {
-        blocker_patterns[pattern]=0ULL;
+void generate_blocker_boards_rooks(board_t *board) {
+    for(int i = 0; i < 64; ++i) {
+        U64 move = board->ROOK_MOVES[i];
+        int num_bits = __builtin_popcountll(move);
+        U64 num_patterns = 1ULL << num_bits;
         
-        for(int bitIndex=0; bitIndex<__builtin_popcountll(board->ROOK_MOVES[position]);++bitIndex) {
-            int bit = (pattern>>bitIndex)&1;
-            if(bit) {
-                blocker_patterns[pattern]|=set_bit(bitIndex,blocker_patterns[pattern],1);
-            }
+        U64 *blockers = (U64 *)malloc(num_patterns * sizeof(U64));
+        if(blockers == NULL) {
+            fprintf(stderr, "Memory allocation failed for square %d\n", i);
+            exit(EXIT_FAILURE);
+        }
+
+        
+        for(int j = 0; j < num_patterns; ++j) {
+            blockers[j] = 0ULL;
+            U64 temp = move;
+            int bit_index = 0;
             
+            while(temp) {
+                int square = __builtin_ctzll(temp);  
+                if(j & (1 << bit_index)) {           
+                    blockers[j] |= (1ULL << square);
+                }
+                temp &= temp - 1;  
+                bit_index++;
+            }
         }
         
+        board->ROOK_BLOCKERS[i] = blockers;
+    }
+    
+    display_bitBoard(board->ROOK_BLOCKERS[36][15]);
 }
-display_bitBoard(blocker_patterns[7]);
-}
+
 U64 get_attacks_for_knight_at_square(board_t * board,int pos,int colour) {
     U64 colour_board = colour ? board->WHITE : board->BLACK;
     //colour_board = ~colour_board;
@@ -906,6 +920,7 @@ board_t * init_from_FEN(char fen[]) {
 board_t * init_board() {
     board_t * new = NULL;
     new = (board_t *) malloc(sizeof(board_t));
+    
     if (new == NULL) {
         fprintf(stderr, "Failed to allocate memory for board\n");
         exit(EXIT_FAILURE);
@@ -932,7 +947,9 @@ board_t * init_board() {
     precompute_bishop_moves(new);
     precompute_queen_moves(new);
     precompute_king_moves(new);
+    
     return new;
+    
 }
 
 //Putting it all together
