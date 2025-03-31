@@ -6,7 +6,24 @@
 #include "board.h"
 #include "misc.h"
 
+U64 get_rook_mask(int sq) {
+    U64 mask = 0ULL;
+    int r = sq/8, f = sq%8;
+    
+    for(int i=r+1; i<7; i++) mask |= 1ULL << (i*8 + f);
+    for(int i=r-1; i>0; i--) mask |= 1ULL << (i*8 + f);
+    for(int j=f+1; j<7; j++) mask |= 1ULL << (r*8 + j);
+    for(int j=f-1; j>0; j--) mask |= 1ULL << (r*8 + j);
+    display_bitBoard(mask);
+    return mask;
+}
 
+
+void generate_rook_masks(board_t * board) {
+    for(int i=0;i<64;++i) {
+        board->ROOK_MASKS[i] = get_rook_mask(i);
+    }
+}
 
 board_t * copy_board(board_t * original) {
     
