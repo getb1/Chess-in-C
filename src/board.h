@@ -59,7 +59,8 @@ typedef struct BOARD {
     U64 KING_MOVES[64];
 
     
-    U64 ROOK_ATTACKS[64][16384];
+    U64 ROOK_ATTACKS[64][4096];
+    U64 ROOK_MASKS[64];
     
 } board_t;
 
