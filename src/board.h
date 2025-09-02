@@ -5,6 +5,10 @@
 typedef unsigned long long int U64;
 typedef __uint64_t hash_t;
 
+
+extern const int RBits[64];
+extern const int BBits[64];
+
 typedef struct Move {
     int from;
     int to;
@@ -27,6 +31,22 @@ typedef struct MoveStack {
     move_t * moves[4096];
     int top;
 } move_stack_t;
+
+typedef struct check_info {
+    int in_check;
+    U64 checkers;
+    U64 block_or_captures;
+    U64 pinned_pieces;
+    int num_checkers;
+    int num_pinned;
+    U64 pinned_rays;
+    U64 rook_pinned_rays;
+    U64 bishop_pinned_rays;
+    int en_passant_pinned[2];
+    int en_passant_pinned_squares[2];
+    
+} check_info_t;
+
 
 typedef struct BOARD {
     //bitboards
@@ -59,9 +79,7 @@ typedef struct BOARD {
     U64 QUEEN_MOVES[64];
     U64 KING_MOVES[64];
 
-    
-
-    U64 *ROOK_BLOCKERS[64];
+    U64 ROOK_BLOCKERS[64][4096];
 
     U64 ROOK_MAGICS[64];
     U64 BISHOP_MAGICS[64];
@@ -69,9 +87,15 @@ typedef struct BOARD {
     U64 BISHOP_MASKS[64];
     U64 ROOK_ATTACKS[64][4096];
     U64 BISHOP_ATTACKS[64][512];
+    U64 ROOK_ATTACK_TABLE[64][4096];
+    U64 BISHOP_ATTACK_TABLE[64][4096];
+
+    U64 WHITE_ATTACK_MAP;
+    U64 BLACK_ATTACK_MAP;
 
     
 } board_t;
+
 
 
 typedef struct BOARD_STACK {
@@ -103,10 +127,10 @@ U64 get_attacks_for_bishop_at_square(board_t * board,int pos, int colour);
 U64 get_attacks_for_rook_at_square(board_t * board,int pos, int colour);
 U64 generate_attack_maps(board_t * board,int colour);
 int in_check(board_t * board, int colour);
-U64 get_legal_moves_for_knight_at_square(board_t * board, int pos, int colour);
-U64 get_legal_moves_for_rook_at_sqaure(board_t *board, int pos, int colour);
+U64 get_legal_moves_for_knight_at_square(board_t * board, int pos, int colour, check_info_t info);
+U64 get_legal_moves_for_rook_at_sqaure(board_t *board, int pos, int colour, check_info_t info);
 U64 get_legal_moves_for_king_at_sqaure(board_t *board, int pos, int colour);
-U64 get_legal_moves_for_pawn_at_sqaure(board_t * board,int pos, int colour);
+U64 get_legal_moves_for_pawn_at_sqaure(board_t * board,int pos, int colour, check_info_t info);
 U64 get_legal_moves_for_side_bitboards(board_t * board,int colour);
 move_t * get_legal_move_side(board_t * board, int colour, move_t * legal_moves);
 int make_move(board_t* board,move_t * move,board_stack_t * stack);
@@ -120,4 +144,7 @@ void generate_blocker_boards_rooks(board_t * board);
 int checkmate(board_t * board);
 int stalemate(board_t * board);
 int is_terminal(board_t * board);
+board_t * copy_board(board_t * original);
+check_info_t generate_check_info(board_t * board);
+void display_check_info(check_info_t info);
 #endif

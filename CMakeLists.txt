@@ -19,7 +19,10 @@ set(SOURCE_FILES
     src/main.c
     src/board.c
     src/misc.c
-    src/perft.c)
+    src/perft.c
+    src/search.c
+    src/magic_numbers.c
+)
 
 # Create main executable
 add_executable(chess ${SOURCE_FILES})
@@ -43,7 +46,10 @@ set(B_SOURCE_FILES
 
     src/board.c
     src/misc.c
-    src/perft.c)
+    src/perft.c
+    src/search.c
+    src/magic_numbers.c
+)
     # Create test executable
 	set(BOARD_SOURCES src/board.c)
 	add_executable(test_runner tests/test_board.c ${B_SOURCE_FILES} Unity/src/unity.c)

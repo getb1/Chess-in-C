@@ -6,6 +6,11 @@
 
 #include "board.h"
 
+#define max(a,b) \
+   ({ __typeof__ (a) _a = (a); \
+       __typeof__ (b) _b = (b); \
+     _a > _b ? _a : _b; })
+
 int get_bit(int pos, U64 number) {
     
     return (number>>pos)&1==1;
@@ -59,4 +64,47 @@ char * move_to_string(move_t * move) {
     free(from);
     free(to);
     return move_str;  
+}
+
+U64 generate_path_between_two_points(int from, int to, int exclude_to) {
+    U64 path = 0ULL;
+    
+    int from_rank = get_rank(from);
+    int from_file = get_file(from);
+    int to_rank = get_rank(to);
+    int to_file = get_file(to);
+    path = set_bit(from, path, 1);
+    path = set_bit(to, path, 1);
+    if (from == to) {
+        return path; // No path needed if from and to are the same
+    }
+
+    int old_to = to;
+    
+
+     
+
+    int rank_step = (to_rank > from_rank) ? 1 : (to_rank < from_rank) ? -1 : 0;
+    int file_step = (to_file > from_file) ? 1 : (to_file < from_file) ? -1 : 0;
+
+    int current_rank = from_rank;
+    int current_file = from_file;
+
+    for(int i=0; i<max(abs(to_rank - from_rank), abs(to_file - from_file)); ++i) {
+        current_rank += rank_step;
+        current_file += file_step;
+        int current_square = coordinates_to_number(current_rank, current_file);
+        path = set_bit(current_square, path, 1);
+        
+        if (current_square == old_to) {
+            break; // Stop if we've reached the destination square
+        }
+    }
+
+    if(exclude_to) {
+        path = clear_bit(old_to, path);
+    }
+    
+
+    return path;
 }

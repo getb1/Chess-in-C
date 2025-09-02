@@ -5,8 +5,9 @@
 #include <stdint.h>
 #include "board.h"
 #include "misc.h"
+#include "magic_numbers.h"
 
-
+#define lsb(x) __builtin_ctzll(x)
 
 board_t * copy_board(board_t * original) {
     
@@ -28,6 +29,8 @@ board_t * copy_board(board_t * original) {
     copy->turn = original->turn;
     copy->halfMoveCLock = original->halfMoveCLock;
     copy->castleFlags = original->castleFlags;
+    copy->zorbist_hash = original->zorbist_hash;
+    copy->zorbist_to_move = original->zorbist_to_move;
     return copy;
 
 }
@@ -113,11 +116,13 @@ void display_board(board_t * board) {
             
             printf("%c|",piece);
         }
+        printf(" %d",i+1);
     }
     printf("\n");
     for(int i=0;i<17;++i) {
         printf("-");
     }
+    printf("\n a b c d e f g h");
     printf("\n");
 }
 
@@ -247,7 +252,6 @@ void precompute_queen_moves(board_t * board) {
     }
 }
 
-
 void precompute_king_moves(board_t * board) {
     int directions[8][2] = {{-1,-1},{0,-1},{1,-1},{1,0},{1,1},{0,1},{-1,1},{-1,0}};
     int rank,file,d_file,d_rank,new_file,new_rank;
@@ -269,41 +273,6 @@ void precompute_king_moves(board_t * board) {
     }
 }
 
-void generate_blocker_boards_rooks(board_t *board) {
-    for(int i = 0; i < 64; ++i) {
-        U64 move = board->ROOK_MOVES[i]&board->ROOK_MASKS[i];
-        int num_bits = __builtin_popcountll(move);
-        U64 num_patterns = 1ULL << num_bits;
-        
-        U64 *blockers = (U64 *)malloc(num_patterns * sizeof(U64));
-    
-        for(int j = 0; j < num_patterns; ++j) {
-            blockers[j] = 0ULL;
-            U64 temp = move;
-            int bit_index = 0;
-            
-            while(temp) {
-                int square = __builtin_ctzll(temp);  
-                if(j & (1 << bit_index)) {           
-                    blockers[j] |= (1ULL << square);
-                }
-                temp &= temp - 1;  
-                bit_index++;
-            }
-        }
-        
-        board->ROOK_BLOCKERS[i] = blockers;
-    }
-    
-    
-}
-
-void generate_attack_table(board_t * board) {
-    for(int i=0;i<64;++i) {
-        U64 r_mask = board->ROOK_MASKS[i];
-
-    }
-}
 
 U64 get_attacks_for_knight_at_square(board_t * board,int pos,int colour) {
     U64 colour_board = colour ? board->WHITE : board->BLACK;
@@ -313,86 +282,39 @@ U64 get_attacks_for_knight_at_square(board_t * board,int pos,int colour) {
 }
 
 U64 get_attacks_for_bishop_at_square(board_t * board,int pos, int colour) {
-    const int directions[4][2] = {{1,1},{-1,-1},{-1,1},{1,-1}};
-    int allowed[4] = {1, 1, 1, 1};
-    U64 move = board->BISHOP_MOVES[pos];
+    U64 magic_number = board->BISHOP_MAGICS[pos];
+    U64 mask = board->BISHOP_MASKS[pos];
+    U64 blockers = board->BLACK | board->WHITE;
+    U64 colour_board = colour ? board->WHITE : board->BLACK;
 
-    int rank = get_rank(pos);
-    int file = get_file(pos);
+    blockers &= mask;
+    U64 possible_moves = board->BISHOP_ATTACK_TABLE[pos][transform(blockers, magic_number, BBits[pos])];
 
-    int d_rank,d_file,new_rank,new_file;
-    const U64 colour_board = colour ? board->WHITE : board->BLACK;
-    const U64 opponet_board= colour ? board->BLACK : board->WHITE;
+    possible_moves &= ~(colour_board);
 
-    for(int i=0;i<8;++i) {
-        for(int j=0;j<4;++j) {
-            d_rank = directions[j][0]*(i+1);
-            d_file = directions[j][1]*(i+1);
-
-            new_rank = rank+d_rank;
-            new_file = file+d_file;
-            
-            if(on_board_rank_file(new_rank,new_file)) {
-            
-            if(allowed[j]==1) {
-                
-                if(get_bit(coordinates_to_number(new_rank,new_file),colour_board)) {
-                    move &= clear_bit(coordinates_to_number(new_rank,new_file),move);
-                    
-                    allowed[j]=0;
-                } else if(get_bit(coordinates_to_number(new_rank,new_file),opponet_board)) {
-                    allowed[j]=0;
-                }
-            } else {
-                move &= clear_bit(coordinates_to_number(new_rank,new_file),move);
-            }
-
-            }
-        }
-    }
-    return move;
+    return possible_moves;
 
 }
 
 U64 get_attacks_for_rook_at_square(board_t * board,int pos, int colour) {
-    const int directions[4][2] = {{0,1},{0,-1},{1,0},{-1,0}};
-    int allowed[4] = {1, 1, 1, 1};
-    U64 move = board->ROOK_MOVES[pos];
+    
+    U64 magic_number = board->ROOK_MAGICS[pos];
+    U64 mask = board->ROOK_MASKS[pos];
+    U64 blockers = board->BLACK | board->WHITE;
+    U64 colour_board = colour ? board->WHITE : board->BLACK;
 
-    int rank = get_rank(pos);
-    int file = get_file(pos);
 
-    int d_rank,d_file,new_rank,new_file;
-    const U64 colour_board = colour ? board->WHITE : board->BLACK;
-    const U64 opponet_board= colour ? board->BLACK : board->WHITE;
 
-    for(int i=0;i<8;++i) {
-        for(int j=0;j<4;++j) {
-            d_rank = directions[j][0]*(i+1);
-            d_file = directions[j][1]*(i+1);
+    blockers &= mask;
+    U64 possible_moves = board->ROOK_ATTACK_TABLE[pos][transform(blockers, magic_number, RBits[pos])];
 
-            new_rank = rank+d_rank;
-            new_file = file+d_file;
-            
-            if(on_board_rank_file(new_rank,new_file)) {
-            
-            if(allowed[j]==1) {
-                
-                if(get_bit(coordinates_to_number(new_rank,new_file),colour_board)) {
-                    move &= clear_bit(coordinates_to_number(new_rank,new_file),move);
-                    
-                    allowed[j]=0;
-                } else if(get_bit(coordinates_to_number(new_rank,new_file),opponet_board)) {
-                    allowed[j]=0;
-                }
-            } else {
-                move &= clear_bit(coordinates_to_number(new_rank,new_file),move);
-            }
+    possible_moves &= ~(colour_board);
 
-            }
-        }
-    }
-    return move;
+    return possible_moves;
+
+    
+
+
 
 }
 
@@ -431,14 +353,77 @@ U64 get_attacks_for_pawn_at_square(board_t * board,int pos, int colour) {
     return move;
 }
 
+U64 get_attacks_for_knight_at_square_unfiltered(board_t * board, int pos, int colour) {
+    return board->KNIGHT_MOVES[pos];
+}
+
+U64 get_attacks_for_bishop_at_square_unfiltered(board_t * board, int pos, int colour) {
+    U64 magic_number = board->BISHOP_MAGICS[pos];
+    U64 mask = board->BISHOP_MASKS[pos];
+    U64 blockers = board->BLACK | board->WHITE;
+
+    blockers &= mask;
+    U64 possible_moves = board->BISHOP_ATTACK_TABLE[pos][transform(blockers, magic_number, BBits[pos])];
+
+    return possible_moves;
+
+}
+
+U64 get_attacks_for_rook_at_square_unfiltered(board_t * board, int pos, int colour) {
+
+    
+    U64 magic_number = board->ROOK_MAGICS[pos];
+    U64 mask = board->ROOK_MASKS[pos];
+    U64 blockers = board->BLACK | board->WHITE;
+
+    blockers &= mask;
+    U64 possible_moves = board->ROOK_ATTACK_TABLE[pos][transform(blockers, magic_number, RBits[pos])];
+
+    return possible_moves;
+}
+
+U64 get_attacks_for_pawn_at_square_unfiltered(board_t * board, int pos, int colour) {
+    U64 *colour_moves = colour ? board->WHITE_PAWN_MOVES: board->BLACK_PAWN_MOVES;
+    int direction = colour ? 1:-1;
+    U64 colour_board = colour ? board->WHITE : board->BLACK;
+    U64 opponet_board = colour ? board->BLACK : board->WHITE;
+    if(colour_moves[pos]==0){
+        return 0ULL;
+    }
+
+    U64 move = 0ULL;
+
+    int rank = get_rank(pos);
+    int file = get_file(pos);
+
+    if(on_board_rank_file(rank+direction,file+1)) {
+        move |= set_bit(coordinates_to_number(rank+direction,file+1),move,1);
+    }
+    if(on_board_rank_file(rank+direction,file-1)) {
+        move |= set_bit(coordinates_to_number(rank+direction,file-1),move,1);
+    }
+
+    return move;
+}
+
+U64 get_attacks_for_king_at_square_unfiltered(board_t * board, int pos, int colour) {
+    return board->KING_MOVES[pos];
+}
+U64 get_attacks_for_queen_at_square_unfiltered(board_t * board, int pos, int colour) {
+    return get_attacks_for_rook_at_square_unfiltered(board,pos,colour)|get_attacks_for_bishop_at_square_unfiltered(board,pos,colour);
+}
+
+
 U64 generate_attack_maps(board_t * board,int colour) {
 
     U64 boards[6] = {board->ROOKS,board->KNIGHTS,board->BISHOPS,board->KINGS,board->QUEENS,board->PAWNS};
 
     U64 colour_board = colour ? board->WHITE : board->BLACK;
     U64 map = 0ULL;
-    for(int i=0;i<64;++i) {
-        if(get_bit(i,colour_board)) {
+    int i = __builtin_ctzll(colour_board);
+
+    while(colour_board) {
+        
             if(get_bit(i,board->ROOKS)) {
                 map |= get_attacks_for_rook_at_square(board,i,colour);
             } else if(get_bit(i,board->KNIGHTS)) {
@@ -452,6 +437,34 @@ U64 generate_attack_maps(board_t * board,int colour) {
             } else if(get_bit(i,board->PAWNS)) {
                 map |= get_attacks_for_pawn_at_square(board,i,colour);
             }
+        colour_board = clear_bit(i,colour_board);
+        i=__builtin_ctzll(colour_board);
+    }
+    return map;
+
+}
+
+U64 generate_attack_maps_unfiltered(board_t * board,int colour) {
+
+    U64 boards[6] = {board->ROOKS,board->KNIGHTS,board->BISHOPS,board->KINGS,board->QUEENS,board->PAWNS};
+
+    U64 colour_board = colour ? board->WHITE : board->BLACK;
+    U64 map = 0ULL;
+    for(int i=0;i<64;++i) {
+        if(get_bit(i,colour_board)) {
+            if(get_bit(i,board->ROOKS)) {
+                map |= get_attacks_for_rook_at_square_unfiltered(board,i,colour);
+            } else if(get_bit(i,board->KNIGHTS)) {
+                map |= get_attacks_for_knight_at_square_unfiltered(board,i,colour);
+            } else if(get_bit(i,board->BISHOPS)) {
+                map |= get_attacks_for_bishop_at_square_unfiltered(board,i,colour);
+            } else if(get_bit(i,board->KINGS)) {
+                map |= get_attacks_for_king_at_square_unfiltered(board,i,colour);
+            } else if(get_bit(i,board->QUEENS)) {
+                map |= get_attacks_for_queen_at_square_unfiltered(board,i,colour);
+            } else if(get_bit(i,board->PAWNS)) {
+                map |= get_attacks_for_pawn_at_square_unfiltered(board,i,colour);
+            }
         }
     }
     return map;
@@ -462,15 +475,493 @@ int in_check(board_t *board, int colour) {
 
     U64 KING_POS = colour ? board->WHITE & board->KINGS : board->BLACK & board->KINGS;
     U64 attack_map = generate_attack_maps(board, 1 - colour);
-
+    
     if (KING_POS & attack_map) {
         return 1;
     }
     return 0;
 }
 
+U64 generate_checkers(board_t * board, int colour) {
+    U64 king = board->turn ? (board->WHITE & board->KINGS) : (board->BLACK & board->KINGS);
+    U64 opponent_board = board->turn ? board->BLACK : board->WHITE;
+    U64 player_board = board->turn ? board->WHITE : board->BLACK;
+    int king_pos = find_msb(king);
+    int king_rank = get_rank(king_pos);
+    int king_file = get_file(king_pos);
+    int direction = board->turn ? 1:-1;
+    U64 checkers = 0ULL;
+    U64 checkers_2=0ULL;
+    U64 opponent_knights = opponent_board & board->KNIGHTS;
+    U64 knight_attacks = get_attacks_for_knight_at_square(board,king_pos,board->turn);
+    checkers_2 = (knight_attacks & opponent_knights);
+
+    U64 opponent_bishops = opponent_board & board->BISHOPS;
+    U64 bishop_attacks = get_attacks_for_bishop_at_square(board,king_pos,board->turn);
+    
+    checkers_2 |= (bishop_attacks & opponent_bishops);
+
+    U64 opponent_rooks = opponent_board & board->ROOKS;
+    U64 rook_attacks = get_attacks_for_rook_at_square(board,king_pos,board->turn);
+    checkers_2 |= (rook_attacks & opponent_rooks);
+
+    U64 opponent_queens = opponent_board & board->QUEENS;
+    U64 queen_attacks = get_attacks_for_queen_at_square(board,king_pos,board->turn);
+    checkers_2 |= (queen_attacks & opponent_queens);
+
+    // Check for pawns
+    U64 opponent_pawns = opponent_board & board->PAWNS;
+
+    if(on_board_rank_file(king_rank+direction,king_file+1)) {
+        int pawn_square = coordinates_to_number(king_rank+direction,king_file+1);
+        if(get_bit(pawn_square,opponent_pawns)) {
+            checkers_2 = set_bit(pawn_square,checkers_2,1);
+        }
+    }
+    if(on_board_rank_file(king_rank+direction,king_file-1)) {
+        int pawn_square = coordinates_to_number(king_rank+direction,king_file-1);
+        if(get_bit(pawn_square,opponent_pawns)) {
+            checkers_2 = set_bit(pawn_square,checkers_2,1);
+        }
+    }
+
+    
+    
+    return checkers_2;
+    }
+
+int count_checkers(board_t * board, int colour) {
+    U64 king = board->turn ? (board->WHITE & board->KINGS) : (board->BLACK & board->KINGS);
+    U64 opponent_board = board->turn ? board->BLACK : board->WHITE;
+    U64 player_board = board->turn ? board->WHITE : board->BLACK;
+    int king_pos = find_msb(king);
+    int king_rank = get_rank(king_pos);
+    int king_file = get_file(king_pos);
+    int direction = board->turn ? 1:-1;
+    U64 checkers = 0ULL;
+    U64 checkers_2=0ULL;
+    U64 opponent_knights = opponent_board & board->KNIGHTS;
+    U64 knight_attacks = get_attacks_for_knight_at_square(board,king_pos,board->turn);
+    checkers_2 = (knight_attacks & opponent_knights);
+
+    U64 opponent_bishops = opponent_board & board->BISHOPS;
+    U64 bishop_attacks = get_attacks_for_bishop_at_square(board,king_pos,board->turn);
+    
+    checkers_2 |= (bishop_attacks & opponent_bishops);
+
+    U64 opponent_rooks = opponent_board & board->ROOKS;
+    U64 rook_attacks = get_attacks_for_rook_at_square(board,king_pos,board->turn);
+    checkers_2 |= (rook_attacks & opponent_rooks);
+
+    U64 opponent_queens = opponent_board & board->QUEENS;
+    U64 queen_attacks = get_attacks_for_queen_at_square(board,king_pos,board->turn);
+    checkers_2 |= (queen_attacks & opponent_queens);
+
+    // Check for pawns
+    U64 opponent_pawns = opponent_board & board->PAWNS;
+
+    if(on_board_rank_file(king_rank+direction,king_file+1)) {
+        int pawn_square = coordinates_to_number(king_rank+direction,king_file+1);
+        if(get_bit(pawn_square,opponent_pawns)) {
+            checkers_2 = set_bit(pawn_square,checkers_2,1);
+        }
+    }
+    if(on_board_rank_file(king_rank+direction,king_file-1)) {
+        int pawn_square = coordinates_to_number(king_rank+direction,king_file-1);
+        if(get_bit(pawn_square,opponent_pawns)) {
+            checkers_2 = set_bit(pawn_square,checkers_2,1);
+        }
+    }
+
+    
+    
+    return __builtin_popcountll(checkers_2);
+}
+
+int en_passant_valid(board_t * board, int position) {
+    if(board->enPassantsq==-1) {
+        return -1;
+    }
+    
+
+    if(board->turn) {
+        
+
+        int rank = get_rank(position);
+        int file = get_file(position);
+        int enp_rank = get_rank(board->enPassantsq);
+        int enp_file = get_file(board->enPassantsq);
+        int capture_pos;
+
+        
+
+        if(rank+1==enp_rank) {
+            
+            if(file==enp_file+1) {
+                capture_pos = coordinates_to_number(rank,enp_file);
+                
+            
+            } else if (file==enp_file-1) {
+                capture_pos = coordinates_to_number(rank,enp_file);
+                
+                
+            } else {
+                return -1;
+            }
+            U64 original_white = board->WHITE;
+            U64 original_black = board->BLACK;
+            U64 original_pawns = board->PAWNS;
+            
+
+            
+            board->WHITE = clear_bit(position,board->WHITE);
+            board->PAWNS = clear_bit(position, board->PAWNS);
+            board->BLACK = clear_bit(capture_pos,board->BLACK);
+            board->PAWNS = clear_bit(capture_pos,board->PAWNS);
+            
+            board->WHITE = set_bit(board->enPassantsq,board->WHITE,1);
+            board->PAWNS = set_bit(board->enPassantsq,board->PAWNS,1);
+            int invalid=0;
+
+            
+            if(in_check(board,1)) {
+                
+                invalid =1;
+            }
+
+            board->WHITE = original_white;
+            board->BLACK = original_black;
+            board->PAWNS = original_pawns;
+            return invalid;
+
+            
+        }
+
+
+    } else {
+        int rank = get_rank(position);
+        int file = get_file(position);
+        int enp_rank = get_rank(board->enPassantsq);
+        int enp_file = get_file(board->enPassantsq);
+        int capture_pos;
+        if(rank-1==enp_rank) {
+            if(file==enp_file+1) {
+                capture_pos = coordinates_to_number(rank,enp_file);
+            
+            } else if (file==enp_file-1) {
+                capture_pos = coordinates_to_number(rank,enp_file);
+                
+            } else {
+                return -1;
+            }
+            U64 original_white = board->WHITE;
+            U64 original_black = board->BLACK;
+            U64 original_pawns = board->PAWNS;
+
+            board->BLACK = clear_bit(position,board->BLACK);
+            board->PAWNS = clear_bit(position, board->PAWNS);
+            board->WHITE = clear_bit(capture_pos,board->WHITE);
+            board->PAWNS = clear_bit(capture_pos,board->PAWNS);
+
+            board->BLACK = set_bit(board->enPassantsq,board->BLACK,1);
+            board->PAWNS = set_bit(board->enPassantsq,board->PAWNS,1);
+            int invalid=0;
+            
+            if(in_check(board,0)) {
+                invalid =1;
+            }
+
+            board->WHITE = original_white;
+            board->BLACK = original_black;
+            board->PAWNS = original_pawns;
+            return invalid;
+
+            
+        }
+    }
+    return -1;
+}
+
+check_info_t generate_check_info(board_t * board) {
+
+    check_info_t check_info = {0, 0ULL, 0ULL, 0ULL, 0, 0, 0ULL};
+
+    U64 king = board->turn ? (board->WHITE & board->KINGS) : (board->BLACK & board->KINGS);
+    U64 opponent_board = board->turn ? board->BLACK : board->WHITE;
+    U64 player_board = board->turn ? board->WHITE : board->BLACK;
+    int king_pos = find_msb(king);
+    int king_rank = get_rank(king_pos);
+    int king_file = get_file(king_pos);
+    check_info.in_check = in_check(board, board->turn);
+    check_info.pinned_rays = 0ULL;
+    check_info.pinned_pieces = 0ULL;
+    
+
+    if(check_info.in_check) {
+        U64 check_attacks = 0ULL;
+        U64 checkers = 0ULL;
+        // Find the number of checkers
+        for(int i=0;i<64;++i) {
+            if(get_bit(i,opponent_board)) {
+                if(get_bit(i,board->ROOKS)) {
+                    U64 attacks = get_attacks_for_rook_at_square(board,i,1-board->turn);
+                    if(attacks & king) {
+                        checkers = set_bit(i,checkers,1);
+                        check_attacks |= generate_path_between_two_points(i,king_pos,1);
+                    }
+                } else if(get_bit(i,board->BISHOPS)) {
+                    U64 attacks = get_attacks_for_bishop_at_square(board,i,1-board->turn);
+                    if(attacks & king) {
+                        checkers = set_bit(i,checkers,1);
+                        check_attacks |= generate_path_between_two_points(i,king_pos,1);
+                    }
+                } else if(get_bit(i,board->QUEENS)) {
+                    U64 attacks = get_attacks_for_queen_at_square(board,i,1-board->turn);
+                    if(attacks & king) {
+                        checkers = set_bit(i,checkers,1);
+                        check_attacks |= generate_path_between_two_points(i,king_pos,1);
+                        
+                    }
+                
+                } else if(get_bit(i,board->KNIGHTS)) {
+                    U64 attacks = get_attacks_for_knight_at_square(board,i,1-board->turn);
+                    if(attacks & king) {
+                        checkers = set_bit(i,checkers,1);
+                        check_attacks |= set_bit(i,check_attacks,1);
+                        
+                    }
+                } else if(get_bit(i,board->PAWNS)) {
+                    U64 attacks = get_attacks_for_pawn_at_square(board,i,1-board->turn);
+                    if(attacks & king) {
+                        checkers = set_bit(i,checkers,1);
+                        check_attacks |= set_bit(i,check_attacks,1);
+                        if(board->enPassantsq!=-1) {
+                            
+                            int direction = board->turn ? 1:-1;
+                            int ep_rank = get_rank(board->enPassantsq);
+                            int ep_file = get_file(board->enPassantsq);
+                            int file = get_file(i);
+                            int rank = get_rank(i);
+                            
+                            if(ep_rank==rank+direction&&file==ep_file) {
+                                check_attacks |= set_bit(board->enPassantsq,check_attacks,1);}
+
+                        }
+                    }
+                }  }  
+                
+            }
+        check_info.checkers = checkers;
+        check_info.block_or_captures = check_attacks;
+        check_info.num_checkers = __builtin_popcountll(checkers);
+        }
+
+        // Generate pinned pieces
+        U64 pinned_pieces = 0ULL;
+
+
+        // Remove Pieces and see if the king is put in check. If yes then the piece is pinned
+        // If the king is in check remove the checking piece to check for pins
+
+        //Store checking pieces
+        
+        
+        
+        U64 b_magic = board->BISHOP_MAGICS[king_pos];
+        U64 b_mask = board->BISHOP_MASKS[king_pos];
+        U64 r_magic = board->ROOK_MAGICS[king_pos];
+        U64 r_mask = board->ROOK_MASKS[king_pos];
+        U64 blockers = 0ULL;
+        
+        player_board&=board->BISHOP_ATTACK_TABLE[king_pos][transform(blockers, b_magic, BBits[king_pos])]|board->ROOK_ATTACK_TABLE[king_pos][transform(blockers, r_magic, RBits[king_pos])];
+        
+        player_board &= ~(board->KINGS);
+        
+        int i = __builtin_ctzll(player_board);
+
+        check_info.en_passant_pinned[0]=0;
+        check_info.en_passant_pinned[1]=0;
+        check_info.en_passant_pinned_squares[0]=-1;
+        check_info.en_passant_pinned_squares[1]=-1;
+        
+        int en_passant_checked=0;
+        while(player_board) {
+                
+                if(get_bit(i,board->ROOKS)) {
+                    U64 original_rooks = board->ROOKS;
+                    U64 original_white = board->WHITE;
+                    U64 original_black = board->BLACK;
+                    
+                    board->ROOKS = clear_bit(i, board->ROOKS);
+                    if (board->turn) {
+                        board->WHITE = clear_bit(i, board->WHITE);
+                    } else {
+                        board->BLACK = clear_bit(i, board->BLACK);
+                    }
+
+                    if (check_info.num_checkers!= count_checkers(board, board->turn)) {
+
+                        pinned_pieces = set_bit(i, pinned_pieces, 1);
+                        U64 pinner = generate_checkers(board, board->turn)^check_info.checkers;
+                        int pinner_pos = find_msb(pinner);
+                        
+                        check_info.pinned_rays |= generate_path_between_two_points(pinner_pos, king_pos, 1);
+                    }
+
+                    // Restore the original state
+                    board->ROOKS = original_rooks;
+                    board->WHITE = original_white;
+                    board->BLACK = original_black;
+                    
+                }
+                else if(get_bit(i,board->KNIGHTS)) {
+                    U64 original_knights = board->KNIGHTS;
+                    U64 original_white = board->WHITE;
+                    U64 original_black = board->BLACK;
+                    
+                    board->KNIGHTS = clear_bit(i, board->KNIGHTS);
+                    if (board->turn) {
+                        board->WHITE = clear_bit(i, board->WHITE);
+                    } else {
+                        board->BLACK = clear_bit(i, board->BLACK);
+                    }
+                    if (check_info.num_checkers!= count_checkers(board, board->turn)) {
+                        pinned_pieces = set_bit(i, pinned_pieces, 1);
+                        check_info.pinned_rays |= generate_path_between_two_points(i, king_pos, 1);
+                    }
+                    // Restore the original state
+                    board->KNIGHTS = original_knights;
+                    board->WHITE = original_white;
+                    board->BLACK = original_black;
+                }
+                else  if(get_bit(i,board->BISHOPS)) {
+                    U64 original_bishops = board->BISHOPS;
+                    U64 original_white = board->WHITE;
+                    U64 original_black = board->BLACK;
+
+                    board->BISHOPS = clear_bit(i, board->BISHOPS);
+                    if (board->turn) {
+                        board->WHITE = clear_bit(i, board->WHITE);
+                    } else {
+                        board->BLACK = clear_bit(i, board->BLACK);
+                    }
+
+                    if (check_info.num_checkers!= count_checkers(board, board->turn)) {
+                        pinned_pieces = set_bit(i, pinned_pieces, 1);
+                        U64 pinner = generate_checkers(board, board->turn)^check_info.checkers;
+                        int pinner_pos = find_msb(pinner);
+                        check_info.pinned_rays |= generate_path_between_two_points(pinner_pos, king_pos, 1);
+                    }
+
+                    // Restore the original state
+                    board->BISHOPS = original_bishops;
+                    board->WHITE = original_white;
+                    board->BLACK = original_black;
+                }
+                else if(get_bit(i,board->QUEENS)) {
+                    U64 original_queens = board->QUEENS;
+                    U64 original_white = board->WHITE;
+                    U64 original_black = board->BLACK;
+
+                    board->QUEENS = clear_bit(i, board->QUEENS);
+                    if (board->turn) {
+                        board->WHITE = clear_bit(i, board->WHITE);
+                    } else {
+                        board->BLACK = clear_bit(i, board->BLACK);
+                    }
+
+                    if (check_info.num_checkers!= count_checkers(board, board->turn)) {
+                        pinned_pieces = set_bit(i, pinned_pieces, 1);
+                        U64 checkers = generate_checkers(board, board->turn);
+                        
+
+                        U64 pinner = checkers ^ (check_info.checkers);
+                        
+                        int pinner_pos = find_msb(pinner);
+                        
+                        check_info.pinned_rays |= generate_path_between_two_points(pinner_pos, king_pos, 1);
+                        
+                    }
+
+                    // Restore the original state
+                    board->QUEENS = original_queens;
+                    board->WHITE = original_white;
+                    board->BLACK = original_black;
+                }   
+                else if(get_bit(i,board->PAWNS)) {
+                    
+                    U64 original_pawns = board->PAWNS;
+                    U64 original_white = board->WHITE;
+                    U64 original_black = board->BLACK;
+
+                    board->PAWNS = clear_bit(i, board->PAWNS);
+                    if (board->turn) {
+                        board->WHITE = clear_bit(i, board->WHITE);
+                    } else {
+                        board->BLACK = clear_bit(i, board->BLACK);
+                    }
+
+                    if (check_info.num_checkers!= count_checkers(board, board->turn)) {
+                        pinned_pieces = set_bit(i, pinned_pieces, 1);
+                        U64 pinner = generate_checkers(board, board->turn)^check_info.checkers;
+                        int pinner_pos = __builtin_ctzll(pinner);
+                        check_info.pinned_rays |= generate_path_between_two_points(pinner_pos, king_pos, 1);
+                        // Check to see if a piece can become pinned by enpassant
+
+                    
+                     
+                    }
+                    board->PAWNS = original_pawns;
+                    board->WHITE = original_white;
+                    board->BLACK = original_black;
+                    
+                    if(board->enPassantsq!=-1) {
+                        
+                        int result = en_passant_valid(board,i);    
+                        if(result!=-1) {
+                            
+                            check_info.en_passant_pinned[en_passant_checked]=result;
+                            check_info.en_passant_pinned_squares[en_passant_checked]=i;
+                            en_passant_checked++;
+                            
+                        }
+                            
+                        }
+                    board->PAWNS = original_pawns;
+                    board->WHITE = original_white;
+                    board->BLACK = original_black;
+
+                    // Restore the original state
+                    
+                }
+                player_board = clear_bit(i,player_board);
+                
+                i=__builtin_ctzll(player_board);
+                
+            }
+        
+        
+        check_info.pinned_pieces = pinned_pieces;
+        
+        return check_info;
+}
+
+void display_check_info(check_info_t info) {
+    printf("In Check: %d\n",info.in_check);
+    printf("Number of Checkers: %d\n",info.num_checkers);
+    printf("Checkers: \n");
+    display_bitBoard(info.checkers);
+    printf("Block or Capture Squares: \n");
+    display_bitBoard(info.block_or_captures);
+    printf("Pinned Pieces: \n");
+    display_bitBoard(info.pinned_pieces);
+    printf("Pinned Rays: \n");
+    display_bitBoard(info.pinned_rays);
+
+}
+
 int piece_on_square(board_t * board, int pos,int colour) {
-    U64 colour_board = ~(colour) ? board->WHITE : board->BLACK;
+    U64 colour_board = (colour) ? board->WHITE : board->BLACK;
 
     if(get_bit(pos,colour_board)) {
         return 1;
@@ -478,231 +969,265 @@ int piece_on_square(board_t * board, int pos,int colour) {
     return 0;
 }
 
-U64 get_legal_moves_for_knight_at_square(board_t *board, int pos, int colour) {
+int get_direction(int from, int to) {
+    int from_rank = get_rank(from);
+    int from_file = get_file(from);
+    int to_rank = get_rank(to);
+    int to_file = get_file(to);
+
+    if(from_rank == to_rank) {
+        return (to_file > from_file) ? 1 : -1; // Horizontal
+    } else if(from_file == to_file) {
+        return (to_rank > from_rank) ? 2 : -2; // Vertical
+    } else if(abs(from_rank - to_rank) == abs(from_file - to_file)) {
+        if(to_rank > from_rank && to_file > from_file) {
+            return 3; // Diagonal up-right
+        } else if(to_rank > from_rank && to_file < from_file) {
+            return 3; // Diagonal up-left
+        } else if(to_rank < from_rank && to_file > from_file) {
+            return -3; // Diagonal down-right
+        } else {
+            return -3; // Diagonal down-left
+        }
+    }
+    return 0; // Not aligned
+}
+
+U64 get_legal_moves_for_knight_at_square(board_t *board, int pos, int colour, check_info_t info) {
+    //display_check_info(info);
+    if(get_bit(pos,info.pinned_rays)) {
+        return 0ULL; // Knight is pinned, no legal moves
+    }
+    if(info.num_checkers>1) {
+        return 0ULL; // Double check, knight cannot block or capture both
+    }
+
     U64 possible_moves = get_attacks_for_knight_at_square(board, pos, colour);
     U64 legal_moves = 0ULL;
-
-    for (int i = 0; i < 64; ++i) {
-        if (get_bit(i, possible_moves)) {
-            U64 original_knights = board->KNIGHTS;
-            U64 original_white = board->WHITE;
-            U64 original_black = board->BLACK;
-
-            board->KNIGHTS = clear_bit(pos, board->KNIGHTS);
-            board->KNIGHTS = set_bit(i, board->KNIGHTS, 1);
-
-            if (colour) {
-                board->WHITE = clear_bit(pos, board->WHITE);
-                board->WHITE = set_bit(i, board->WHITE, 1);
-                if (piece_on_square(board, i, ~(colour))) {
-                    board->BLACK = clear_bit(i, board->BLACK);
-                }
-            } else {
-                board->BLACK = clear_bit(pos, board->BLACK);
-                board->BLACK = set_bit(i, board->BLACK, 1);
-                if (piece_on_square(board, i, ~(colour))) {
-                    board->WHITE = clear_bit(i, board->WHITE);
-                }
-            }
-
-            if (in_check(board, colour) != 1) {
-                legal_moves = set_bit(i, legal_moves, 1);
-            }
-            
-            
-
-            // Restore original board state
-            board->KNIGHTS = original_knights;
-            board->WHITE = original_white;
-            board->BLACK = original_black;
-        }
+    if(info.in_check==1) {
+        possible_moves &= info.block_or_captures;
+        
+        return possible_moves;
     }
-
-    return legal_moves;
+    else {
+        legal_moves = possible_moves;
+        return legal_moves;
+    }
 }
 
-U64 get_legal_moves_for_rook_at_sqaure(board_t *board, int pos, int colour) {
+
+U64 get_legal_moves_for_rook_at_sqaure(board_t *board, int pos, int colour,check_info_t info) {
     U64 possible_moves = get_attacks_for_rook_at_square(board, pos, colour);
-    U64 legal_moves = 0ULL;
+    
+    if(possible_moves == 0ULL) {
+        return 0ULL; // No possible moves
+    }
 
-    for (int i = 0; i < 64; ++i) {
-        if (get_bit(i, possible_moves)) {
-            U64 original_rooks = board->ROOKS;
-            U64 original_white = board->WHITE;
-            U64 original_black = board->BLACK;
 
-            board->ROOKS = clear_bit(pos, board->ROOKS);
-            board->ROOKS = set_bit(i, board->ROOKS, 1);
+     possible_moves = get_attacks_for_rook_at_square(board, pos, colour);
+    
+    if(possible_moves == 0ULL || info.num_checkers>1) {
+        return 0ULL; // No possible moves
+    }
 
-            if (colour) {
-                board->WHITE = clear_bit(pos, board->WHITE);
-                board->WHITE = set_bit(i, board->WHITE, 1);
-                if (piece_on_square(board, i, ~(colour))) {
-                    board->BLACK = clear_bit(i, board->BLACK);
-                }
-            } else {
-                board->BLACK = clear_bit(pos, board->BLACK);
-                board->BLACK = set_bit(i, board->BLACK, 1);
-                if (piece_on_square(board, i, ~(colour))) {
-                    board->WHITE = clear_bit(i, board->WHITE);
-                }
-            }
-
-            if (in_check(board, colour) != 1) {
-                legal_moves = set_bit(i, legal_moves, 1);
-            }
-            
-            
-
-            // Restore original board state
-            board->ROOKS = original_rooks;
-            board->WHITE = original_white;
-            board->BLACK = original_black;
+    U64 legal_moves_2 = 0ULL;
+    if(get_bit(pos,info.pinned_pieces)) {
+        // prevent moves along adacent pin rays
+        possible_moves &= info.pinned_rays;
+        int king_pos = find_msb(board->turn ? (board->WHITE & board->KINGS) : (board->BLACK & board->KINGS));
+        int direction = get_direction(king_pos,pos);
+        if(direction==0||direction==3||direction==-3) {
+            return 0ULL; // Not aligned with king, no legal moves
+        } else if(direction==1||direction==-1) {
+            possible_moves &= info.pinned_rays;
+            int rank=get_rank(pos);
+            // Shift a horizontal mask onto the pin rays
+            U64 horizontal_mask = 0xFFULL << (rank * 8);
+            possible_moves &= horizontal_mask;
+        } else if(direction==2||direction==-2) {
+            possible_moves &= info.pinned_rays;
+            int file=get_file(pos);
+            // Shift a vertical mask onto the pin rays
+            U64 vertical_mask = 0x0101010101010101ULL << file;
+            possible_moves &= vertical_mask;
         }
+
+    }
+    if(info.in_check==1) {
+        possible_moves &= info.block_or_captures;
+        
+        legal_moves_2 = possible_moves;
+    }
+    else {
+        legal_moves_2 = possible_moves;
+        }
+
+    if(possible_moves == 0ULL) {
+        return 0ULL; // No possible moves
     }
     
-    return legal_moves;
+    return legal_moves_2;
 }
 
-U64 get_legal_moves_for_bishop_at_sqaure(board_t *board, int pos, int colour) {
+U64 get_legal_moves_for_bishop_at_sqaure(board_t *board, int pos, int colour, check_info_t info) {
+    
     U64 possible_moves = get_attacks_for_bishop_at_square(board, pos, colour);
+    if(possible_moves == 0ULL) {
+        return 0ULL; // No possible moves
+    }
     U64 legal_moves = 0ULL;
+    U64 legal_moves_2 = 0ULL;
 
-    for (int i = 0; i < 64; ++i) {
-        if (get_bit(i, possible_moves)) {
-            U64 original_bishops = board->BISHOPS;
-            U64 original_white = board->WHITE;
-            U64 original_black = board->BLACK;
-
-            board->BISHOPS = clear_bit(pos, board->BISHOPS);
-            board->BISHOPS = set_bit(i, board->BISHOPS, 1);
-
-            if (colour) {
-                board->WHITE = clear_bit(pos, board->WHITE);
-                board->WHITE = set_bit(i, board->WHITE, 1);
-                if (piece_on_square(board, i, ~(colour))) {
-                    board->BLACK = clear_bit(i, board->BLACK);
-                }
-            } else {
-                board->BLACK = clear_bit(pos, board->BLACK);
-                board->BLACK = set_bit(i, board->BLACK, 1);
-                if (piece_on_square(board, i, ~(colour))) {
-                    board->WHITE = clear_bit(i, board->WHITE);
-                }
-            }
-
-            if (in_check(board, colour) != 1) {
-                legal_moves = set_bit(i, legal_moves, 1);
-            }
-            
-            
-
-            // Restore original board state
-            board->BISHOPS = original_bishops;
-            board->WHITE = original_white;
-            board->BLACK = original_black;
-        }
+    if(info.num_checkers>1) {
+        possible_moves= 0ULL; // Double check, bishop cannot block or capture both
     }
 
-    return legal_moves;
+    if(get_bit(pos,info.pinned_pieces)) {
+        int direction = get_direction(find_msb(board->turn ? (board->WHITE & board->KINGS) : (board->BLACK & board->KINGS)),pos);
+
+        if(direction==0||direction==1||direction==-1||direction==2||direction==-2) {
+            possible_moves = 0ULL; // Not aligned with king, no legal moves
+        } else {
+            
+            possible_moves &= info.pinned_rays;
+            
+            // prevent moves along adacent pin rays need to do
+            
+            U64 new = info.pinned_rays ^ board->turn ? board->BLACK : board->WHITE;
+            int king_pos = find_msb(board->turn ? (board->WHITE & board->KINGS) : (board->BLACK & board->KINGS));
+            int queen=0;
+            if(get_bit(pos,board->QUEENS)) {
+                board->QUEENS = clear_bit(pos, board->QUEENS);
+                queen=1;
+            }
+            else {board->BISHOPS = clear_bit(pos, board->BISHOPS);}
+            
+            if (colour) {
+                board->WHITE = clear_bit(pos, board->WHITE);
+            } else {
+                board->BLACK = clear_bit(pos, board->BLACK);
+            
+            }
+            U64 checkers = generate_checkers(board, board->turn);
+            checkers ^= info.checkers;
+            int pinner_pos = find_msb(checkers);
+            possible_moves &= generate_path_between_two_points(pinner_pos, king_pos, 1);
+            if(queen) {
+                board->QUEENS = set_bit(pos, board->QUEENS, 1);
+            }
+            else {
+            board->BISHOPS = set_bit(pos, board->BISHOPS, 1);}
+            if (colour) {
+                board->WHITE = set_bit(pos, board->WHITE, 1);
+            } else {
+                board->BLACK = set_bit(pos, board->BLACK, 1);
+            }       
+        }
+
+    }
+
+    if(info.in_check==1) {
+        possible_moves &= info.block_or_captures;
+        
+        legal_moves_2 = possible_moves;
+    }
+    else {
+        legal_moves_2 = possible_moves;
+    }
+
+    
+
+    return legal_moves_2;
 }
 
-U64 get_legal_moves_for_queen_at_square(board_t *board, int pos, int colour) {
-    return get_legal_moves_for_bishop_at_sqaure(board,pos,colour)|get_legal_moves_for_rook_at_sqaure(board,pos,colour);
+U64 get_legal_moves_for_queen_at_square(board_t *board, int pos, int colour, check_info_t info) {
+    return get_legal_moves_for_bishop_at_sqaure(board,pos,colour, info)|get_legal_moves_for_rook_at_sqaure(board,pos,colour,info);
 }
 
 U64 get_legal_moves_for_king_at_sqaure(board_t *board, int pos, int colour) {
+    // Get the attacks for the king
     U64 possible_moves = get_attacks_for_king_at_square(board, pos, colour);
-    U64 legal_moves = 0ULL;
+    U64 legal_moves=0ULL;
 
+    int king_pos = find_msb(board->KINGS & (colour ? board->WHITE : board->BLACK));
+    board->KINGS = clear_bit(king_pos, board->KINGS);
+
+    // Remove the king from the board temporarily to stop it blocking opponents attacks
+    if(colour) {
+        board->WHITE = clear_bit(king_pos, board->WHITE);
+    } else {
+        board->BLACK = clear_bit(king_pos, board->BLACK);
+    }
     
+    // Generate this attack map
+    U64 real_attack_map_unfiltered = generate_attack_maps_unfiltered(board, !(colour));
+    U64 real_attack_map = real_attack_map_unfiltered & ~(colour ? board->WHITE : board->BLACK);
+    // Put the king back on the board
+
+    board->KINGS = set_bit(king_pos, board->KINGS, 1);
     
+    if(colour) {
+        board->WHITE = set_bit(king_pos, board->WHITE, 1);
+    } else {
+        board->BLACK = set_bit(king_pos, board->BLACK, 1);
+    }
+
+    // The issue is that the king doesnt check if by taking a piece it will move into check
+    // To fix this without a for loop 
+    int queen_side_bit,rook_side_bit;
     
-    for (int i = 0; i < 64; ++i) {
-        if (get_bit(i, possible_moves)) {
+    rook_side_bit = colour ? 1 : 3;
+    queen_side_bit= colour ? 0:2;
+    U64 attack_map = generate_attack_maps(board, !(colour));
+    int king_rank = colour?0:7;
+    
+    possible_moves &= ~real_attack_map;
+    legal_moves = possible_moves;
+    
 
-            U64 original_kings = board->KINGS;
-            U64 original_white = board->WHITE;
-            U64 original_black = board->BLACK;
-
-            board->KINGS = clear_bit(pos, board->KINGS);
-            board->KINGS = set_bit(i, board->KINGS, 1);
-
-            if (colour) {
-                board->WHITE = clear_bit(pos, board->WHITE);
-                board->WHITE = set_bit(i, board->WHITE, 1);
-                if (piece_on_square(board, i, ~(colour))) {
-                    board->BLACK = clear_bit(i, board->BLACK);
-                }
-            } else {
-                board->BLACK = clear_bit(pos, board->BLACK);
-                board->BLACK = set_bit(i, board->BLACK, 1);
-                if (piece_on_square(board, i, ~(colour))) {
-                    board->WHITE = clear_bit(i, board->WHITE);
-                }
-            }
-
-            if (in_check(board, colour) != 1) {
-                legal_moves = set_bit(i, legal_moves, 1);
-            }
-            
-            
-
-            // Restore original board state
-            board->KINGS = original_kings;
-            board->WHITE = original_white;
-            board->BLACK = original_black;
-        }
-        }
-        int queen_side_bit,rook_side_bit;
+    if(get_bit(rook_side_bit,board->castleFlags) && !(in_check(board,colour))){
         
-        rook_side_bit = colour ? 1 : 3;
-        queen_side_bit= colour ? 0:2;
-        U64 attack_map = generate_attack_maps(board, !(colour));
-        int king_rank = colour?0:7;
-        
+        int rook_side_file_a = 2;
+        int rook_side_file_b = 1;
+        if(is_square_empty(board,coordinates_to_number(king_rank,rook_side_file_a))&&is_square_empty(board,coordinates_to_number(king_rank,rook_side_file_b))) {
+            if((get_bit(coordinates_to_number(king_rank,rook_side_file_a),attack_map)==0)&&(get_bit(coordinates_to_number(king_rank,rook_side_file_b),attack_map)==0)) {
+                
+                    legal_moves = set_bit(coordinates_to_number(king_rank,rook_side_file_b),legal_moves,1);
+                
+                
 
-        if(get_bit(rook_side_bit,board->castleFlags) && !(in_check(board,colour))){
-            
-            int rook_side_file_a = 2;
-            int rook_side_file_b = 1;
-            if(is_square_empty(board,coordinates_to_number(king_rank,rook_side_file_a))&&is_square_empty(board,coordinates_to_number(king_rank,rook_side_file_b))) {
-                if((get_bit(coordinates_to_number(king_rank,rook_side_file_a),attack_map)==0)&&(get_bit(coordinates_to_number(king_rank,rook_side_file_b),attack_map)==0)) {
-                    
-                        legal_moves = set_bit(coordinates_to_number(king_rank,rook_side_file_b),legal_moves,1);
-                    
-                    
-
-                }
             }
         }
+    }
 
-        if(get_bit(queen_side_bit,board->castleFlags)&&!(in_check(board,colour))) {
-            int queen_side_file_a = 5;
-            int queen_side_file_b = 4;
-            int queen_side_file_c = 6;
-            if(is_square_empty(board,coordinates_to_number(king_rank,queen_side_file_a))&&is_square_empty(board,coordinates_to_number(king_rank,queen_side_file_b))&&is_square_empty(board,coordinates_to_number(king_rank,queen_side_file_c))) {
-            if(!((get_bit(coordinates_to_number(king_rank,queen_side_file_a),attack_map)||get_bit(coordinates_to_number(king_rank,queen_side_file_b),attack_map)))) {
-                legal_moves = set_bit(coordinates_to_number(king_rank,queen_side_file_a),legal_moves,1);
-            }}
-        
-        }
+    if(get_bit(queen_side_bit,board->castleFlags)&&!(in_check(board,colour))) {
+        int queen_side_file_a = 5;
+        int queen_side_file_b = 4;
+        int queen_side_file_c = 6;
+        if(is_square_empty(board,coordinates_to_number(king_rank,queen_side_file_a))&&is_square_empty(board,coordinates_to_number(king_rank,queen_side_file_b))&&is_square_empty(board,coordinates_to_number(king_rank,queen_side_file_c))) {
+        if(!((get_bit(coordinates_to_number(king_rank,queen_side_file_a),attack_map)||get_bit(coordinates_to_number(king_rank,queen_side_file_b),attack_map)))) {
+            legal_moves = set_bit(coordinates_to_number(king_rank,queen_side_file_a),legal_moves,1);
+        }}
     
-    return legal_moves;
+    }
+    
+    return legal_moves& ~(generate_attack_maps_unfiltered(board,!(colour))) & ~(real_attack_map_unfiltered);
 }
 
-U64 get_legal_moves_for_pawn_at_sqaure(board_t * board,int pos, int colour) {
+U64 get_legal_moves_for_pawn_at_sqaure(board_t * board,int pos, int colour, check_info_t info) {
     // get the possible moves for the pawn
     
     int direction = colour ? 1 : -1;
-    U64 possible_moves = get_attacks_for_pawn_at_square(board,pos,colour)|precomputePawnMove(pos,direction);
+
+    U64 colour_moves = colour ? board->WHITE_PAWN_MOVES[pos] : board->BLACK_PAWN_MOVES[pos];
+
+    U64 possible_moves = get_attacks_for_pawn_at_square(board,pos,colour)|colour_moves;
     U64 legal_moves = 0ULL;
     
     U64 colour_board = colour ? board->WHITE : board->BLACK;
     U64 opponet_board = colour ? board->BLACK : board->WHITE;
 
     
-
     int rank = get_rank(pos);
     int file = get_file(pos);
 
@@ -723,16 +1248,54 @@ U64 get_legal_moves_for_pawn_at_sqaure(board_t * board,int pos, int colour) {
 
     if(is_square_empty(board,left)&&board->enPassantsq!=left) {
         possible_moves=clear_bit(left,possible_moves);
+        
     } 
     if(is_square_empty(board,right)&&board->enPassantsq!=right) {
         possible_moves=clear_bit(right,possible_moves);
     }
 
 
+
     if(possible_moves==0) {
         return 0ULL;
     }
+    if(info.num_checkers>1) {
+
+        return 0ULL; // Double check, pawn cannot block or capture both
+    }
+
+    U64 possible_moves_2 = possible_moves;
+    U64 legal_moves_2 = 0ULL;
     
+    // Cehck if position is in en passant pinned squares
+    
+    for(int i=0;i<2;++i) {
+        if(pos==info.en_passant_pinned_squares[i]) {
+            if(info.en_passant_pinned[i]==1) {
+                possible_moves_2=clear_bit(board->enPassantsq,possible_moves_2);
+            }
+            break;
+        }
+    }
+
+    int direction_to_king = get_direction(find_msb(board->turn ? (board->WHITE & board->KINGS) : (board->BLACK & board->KINGS)),pos);
+    if(get_bit(pos,info.pinned_pieces)) {
+        if(abs(direction_to_king)!=1) {
+            possible_moves_2 &= info.pinned_rays;
+        } else {
+            possible_moves_2 = 0ULL;
+        }
+        
+        
+    }
+    if(info.in_check==1) {
+        possible_moves_2 &= info.block_or_captures;
+        
+        legal_moves_2 = possible_moves_2;
+    }
+    else {
+        legal_moves_2 = possible_moves_2;
+    }
     
     int msb_pos = find_msb(possible_moves);
     while(possible_moves !=0) {
@@ -773,7 +1336,21 @@ U64 get_legal_moves_for_pawn_at_sqaure(board_t * board,int pos, int colour) {
     board->WHITE = original_white;
     board->BLACK = original_black;
 }
-
+    if(legal_moves!=legal_moves_2) {
+        printf("Discrepancy found in pawn legal moves calculation!\n");
+        printf("Legal Moves 1:\n");
+        display_bitBoard(legal_moves);
+        printf("Legal Moves 2:\n");
+        display_bitBoard(legal_moves_2);
+        display_board(board);
+        display_check_info(info);
+        printf("En passant sq: %d\n",board->enPassantsq);
+        printf("En passant pinned: %d\n",info.en_passant_pinned[0]);
+        printf("En passant pinned square: %d\n",info.en_passant_pinned_squares[0]);
+        printf("En passant pinned: %d\n",info.en_passant_pinned[1]);
+        printf("En passant pinned square: %d\n",info.en_passant_pinned_squares[1]);
+        exit(1);
+    }
     
     return legal_moves;
 
@@ -832,7 +1409,6 @@ hash_t init_zorbisttable(board_t * board) {
 
 board_t * init_from_FEN(char fen[]) {
     
-    
     board_t * board = init_board();
 
     //board->zorbist_table = init_zorbisttable();
@@ -846,7 +1422,7 @@ board_t * init_from_FEN(char fen[]) {
     board->KINGS = 0ULL;
     board->enPassantsq=-1;
     board->castleFlags=0ULL;
-
+    
     char * token = strtok(fen, " ");
     
     // Split the string into individual parts for parsing
@@ -916,10 +1492,6 @@ board_t * init_from_FEN(char fen[]) {
     return board;
 }
 
-int transform(U64 occ, U64 magic, int bits) {
-    return (int)((occ * magic) >> (64 - bits));
-}
-
 board_t * init_board() {
     board_t * new = NULL;
     new = (board_t *) malloc(sizeof(board_t));
@@ -951,7 +1523,7 @@ board_t * init_board() {
     precompute_queen_moves(new);
     precompute_king_moves(new);
     
-    
+    populate_magic_numbers(new);
     // Precomputed otherwise it would take 30s to load on a raspberry pi
     
 
@@ -969,15 +1541,16 @@ U64 get_legal_moves_for_side_bitboards(board_t * board,int colour) {
     U64 opponet_board = colour ? board->BLACK : board->WHITE;
     U64 attack_map = generate_attack_maps(board,colour);
     U64 possible_moves = 0ULL;
+    check_info_t info = generate_check_info(board);
     
     for(int i=0;i<64;++i) {
         if(colour) {
         switch(get_piece_at_square(board,i)) {
-            case 'P' : possible_moves = get_legal_moves_for_pawn_at_sqaure(board,i,colour); break;
-            case 'R' : possible_moves = get_legal_moves_for_rook_at_sqaure(board,i,colour); break;
-            case 'N' : possible_moves = get_legal_moves_for_knight_at_square(board,i,colour); break;   
-            case 'B' : possible_moves = get_legal_moves_for_bishop_at_sqaure(board,i,colour); break;
-            case 'Q' : possible_moves = get_legal_moves_for_queen_at_square(board,i,colour); break;
+            case 'P' : possible_moves = get_legal_moves_for_pawn_at_sqaure(board,i,colour,info); break;
+            case 'R' : possible_moves = get_legal_moves_for_rook_at_sqaure(board,i,colour,info); break;
+            case 'N' : possible_moves = get_legal_moves_for_knight_at_square(board,i,colour,info); break;   
+            case 'B' : possible_moves = get_legal_moves_for_bishop_at_sqaure(board,i,colour,info); break;
+            case 'Q' : possible_moves = get_legal_moves_for_queen_at_square(board,i,colour,info); break;
             case 'K' : possible_moves = get_legal_moves_for_king_at_sqaure(board,i,colour); break;
             
             default : continue; break;
@@ -986,11 +1559,11 @@ U64 get_legal_moves_for_side_bitboards(board_t * board,int colour) {
 
         } else {
             switch(get_piece_at_square(board,i)) {
-                case 'p' : possible_moves = get_legal_moves_for_pawn_at_sqaure(board,i,colour); break;
-                case 'r' : possible_moves = get_legal_moves_for_rook_at_sqaure(board,i,colour); break;
-                case 'n' : possible_moves = get_legal_moves_for_knight_at_square(board,i,colour); break;   
-                case 'b' : possible_moves = get_legal_moves_for_bishop_at_sqaure(board,i,colour); break;
-                case 'q' : possible_moves = get_legal_moves_for_queen_at_square(board,i,colour); break;
+                case 'p' : possible_moves = get_legal_moves_for_pawn_at_sqaure(board,i,colour,info); break;
+                case 'r' : possible_moves = get_legal_moves_for_rook_at_sqaure(board,i,colour,info); break;
+                case 'n' : possible_moves = get_legal_moves_for_knight_at_square(board,i,colour,info); break;   
+                case 'b' : possible_moves = get_legal_moves_for_bishop_at_sqaure(board,i,colour,info); break;
+                case 'q' : possible_moves = get_legal_moves_for_queen_at_square(board,i,colour,info); break;
                 case 'k' : possible_moves = get_legal_moves_for_king_at_sqaure(board,i,colour); break;
                 
                 default : continue; break;
@@ -999,7 +1572,7 @@ U64 get_legal_moves_for_side_bitboards(board_t * board,int colour) {
         }
     
     }
-    display_bitBoard(legal_moves);
+    
 
     return legal_moves;
 }
@@ -1245,27 +1818,32 @@ move_t * get_legal_move_side(board_t * board, int colour, move_t * legal_moves) 
     U64 colour_board = colour ? board->WHITE : board->BLACK;
     const int pop_count = __builtin_popcountll(colour_board);
     int msb_pos = find_msb(colour_board);
+    check_info_t info = generate_check_info(board);
+
+    
 
     for(int i=0;i<pop_count;++i) {
         U64 possible_moves = 0ULL;
         char piece = get_piece_at_square(board,msb_pos);
         if(colour) {
+            
             switch(piece) {
-                case 'P' : possible_moves = get_legal_moves_for_pawn_at_sqaure(board,msb_pos,colour); break;
-                case 'R' : possible_moves = get_legal_moves_for_rook_at_sqaure(board,msb_pos,colour);break;
-                case 'N' : possible_moves = get_legal_moves_for_knight_at_square(board,msb_pos,colour); break;
-                case 'B' : possible_moves = get_legal_moves_for_bishop_at_sqaure(board,msb_pos,colour); break;
-                case 'Q' : possible_moves = get_legal_moves_for_queen_at_square(board,msb_pos,colour); break;
+                case 'P' : possible_moves = get_legal_moves_for_pawn_at_sqaure(board,msb_pos,colour,info); break;
+                case 'R' : possible_moves = get_legal_moves_for_rook_at_sqaure(board,msb_pos,colour,info);break;
+                case 'N' : possible_moves = get_legal_moves_for_knight_at_square(board,msb_pos,colour,info); break;
+                case 'B' : possible_moves = get_legal_moves_for_bishop_at_sqaure(board,msb_pos,colour,info); break;
+                case 'Q' : possible_moves = get_legal_moves_for_queen_at_square(board,msb_pos,colour,info); break;
                 case 'K' : possible_moves = get_legal_moves_for_king_at_sqaure(board,msb_pos,colour); break;
                 default : break;
             }
         } else {
+            
             switch(piece) {
-                case 'p' : possible_moves = get_legal_moves_for_pawn_at_sqaure(board,msb_pos,colour); break;
-                case 'r' : possible_moves = get_legal_moves_for_rook_at_sqaure(board,msb_pos,colour); break;
-                case 'n' : possible_moves = get_legal_moves_for_knight_at_square(board,msb_pos,colour); break;
-                case 'b' : possible_moves = get_legal_moves_for_bishop_at_sqaure(board,msb_pos,colour); break;
-                case 'q' : possible_moves = get_legal_moves_for_queen_at_square(board,msb_pos,colour); break;
+                case 'p' : possible_moves = get_legal_moves_for_pawn_at_sqaure(board,msb_pos,colour,info); break;
+                case 'r' : possible_moves = get_legal_moves_for_rook_at_sqaure(board,msb_pos,colour, info); break;
+                case 'n' : possible_moves = get_legal_moves_for_knight_at_square(board,msb_pos,colour,info); break;
+                case 'b' : possible_moves = get_legal_moves_for_bishop_at_sqaure(board,msb_pos,colour,info); break;
+                case 'q' : possible_moves = get_legal_moves_for_queen_at_square(board,msb_pos,colour,info); break;
                 case 'k' : possible_moves = get_legal_moves_for_king_at_sqaure(board,msb_pos,colour); break;
                 default : break;
             }
