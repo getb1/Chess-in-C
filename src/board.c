@@ -1218,7 +1218,7 @@ U64 get_legal_moves_for_pawn_at_sqaure(board_t * board,int pos, int colour, chec
     // get the possible moves for the pawn
     
     int direction = colour ? 1 : -1;
-
+    
     U64 colour_moves = colour ? board->WHITE_PAWN_MOVES[pos] : board->BLACK_PAWN_MOVES[pos];
 
     U64 possible_moves = get_attacks_for_pawn_at_square(board,pos,colour)|colour_moves;
@@ -1282,6 +1282,26 @@ U64 get_legal_moves_for_pawn_at_sqaure(board_t * board,int pos, int colour, chec
     if(get_bit(pos,info.pinned_pieces)) {
         if(abs(direction_to_king)!=1) {
             possible_moves_2 &= info.pinned_rays;
+            if(abs(direction)==2) {
+                //And a vertical mask
+                possible_moves_2 &= 0x0101010101010101 << get_file(pos);
+                int direction = colour ? 1: -1;
+                int one_ahead = coordinates_to_number(get_rank(pos)+direction,get_file(file));
+                U64 colour_board = colour ? board->WHITE : board->BLACK;
+                U64 opponent_board = colour ? board->BLACK : board->WHITE;
+                if(get_bit(one_ahead, info.pinned_rays&opponent_board)) {
+                    possible_moves_2 = clear_bit(one_ahead, possible_moves_2);
+                }
+                if((rank==1&&colour)||(rank==6&&!colour)) {
+                    int two_ahead = coordinates_to_number(get_rank(pos)+(2*direction),get_file(file));
+                    if(get_bit(two_ahead, info.pinned_rays&opponent_board)) {
+                        possible_moves_2 = clear_bit(two_ahead, possible_moves_2);
+                    }
+                }
+            } else if(abs(direction)==3) {
+                // Check the direction between the pieces and see if we are moving in the direction of the pinned ray
+                // if we are then we can accept that move, otherwise reject it.
+            }
         } else {
             possible_moves_2 = 0ULL;
         }
