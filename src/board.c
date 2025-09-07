@@ -450,7 +450,11 @@ U64 generate_attack_maps_unfiltered(board_t * board,int colour) {
 
     U64 colour_board = colour ? board->WHITE : board->BLACK;
     U64 map = 0ULL;
-    for(int i=0;i<64;++i) {
+
+    int i = __builtin_ctzll(colour_board);
+
+    while (colour_board)
+     {
         if(get_bit(i,colour_board)) {
             if(get_bit(i,board->ROOKS)) {
                 map |= get_attacks_for_rook_at_square_unfiltered(board,i,colour);
@@ -466,6 +470,8 @@ U64 generate_attack_maps_unfiltered(board_t * board,int colour) {
                 map |= get_attacks_for_pawn_at_square_unfiltered(board,i,colour);
             }
         }
+        colour_board = clear_bit(i,colour_board);
+        i=__builtin_ctzll(colour_board);
     }
     return map;
 
@@ -701,7 +707,8 @@ check_info_t generate_check_info(board_t * board) {
         U64 check_attacks = 0ULL;
         U64 checkers = 0ULL;
         // Find the number of checkers
-        for(int i=0;i<64;++i) {
+        int i = __builtin_ctzll(opponent_board);
+        while(opponent_board) {
             if(get_bit(i,opponent_board)) {
                 if(get_bit(i,board->ROOKS)) {
                     U64 attacks = get_attacks_for_rook_at_square(board,i,1-board->turn);
@@ -749,7 +756,8 @@ check_info_t generate_check_info(board_t * board) {
                         }
                     }
                 }  }  
-                
+            opponent_board = clear_bit(i,opponent_board);
+            i=__builtin_ctzll(opponent_board);
             }
         check_info.checkers = checkers;
         check_info.block_or_captures = check_attacks;
