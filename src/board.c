@@ -993,6 +993,52 @@ int get_direction(int from, int to) {
     return 0; // Not aligned
 }
 
+int diagonal_direction(int from, int to) {
+    int from_rank = get_rank(from);
+    int from_file = get_file(from);
+    int to_rank = get_rank(to);
+    int to_file = get_file(to);
+
+    if(abs(from_rank - to_rank) == abs(from_file - to_file)) {
+        if(to_rank > from_rank && to_file > from_file) {
+            return 1; // Diagonal up-right
+        } else if(to_rank > from_rank && to_file < from_file) {
+            return 2; // Diagonal up-left
+        } else if(to_rank < from_rank && to_file > from_file) {
+            return 3; // Diagonal down-right
+        } else {
+            return 4; // Diagonal down-left
+        }
+    }
+    return 0; // Not aligned
+}
+
+U64 get_diagonal_mask(int square, int is_a1h8) {
+    if (is_a1h8) {
+        // Use the fact that A1-H8 diagonals have constant (rank - file)
+        static const U64 diagonals[] = {
+            0x0000000000000080ULL, 0x0000000000008040ULL, 0x0000000000804020ULL,
+            0x0000000080402010ULL, 0x0000008040201008ULL, 0x0000804020100804ULL,
+            0x0080402010080402ULL, 0x8040201008040201ULL, 0x4020100804020100ULL,
+            0x2010080402010000ULL, 0x1008040201000000ULL, 0x0804020100000000ULL,
+            0x0402010000000000ULL, 0x0201000000000000ULL, 0x0100000000000000ULL
+        };
+        int diagonal_index = (square / 8) - (square % 8) + 7;
+        return diagonals[diagonal_index];
+    } else {
+        // A8-H1 diagonals have constant (rank + file)
+        static const U64 diagonals[] = {
+            0x0000000000000001ULL, 0x0000000000000102ULL, 0x0000000000010204ULL,
+            0x0000000001020408ULL, 0x0000000102040810ULL, 0x0000010204081020ULL,
+            0x0001020408102040ULL, 0x0102040810204080ULL, 0x0204081020408000ULL,
+            0x0408102040800000ULL, 0x0810204080000000ULL, 0x1020408000000000ULL,
+            0x2040800000000000ULL, 0x4080000000000000ULL, 0x8000000000000000ULL
+        };
+        int diagonal_index = (square / 8) + (square % 8);
+        return diagonals[diagonal_index];
+    }
+}
+
 U64 get_legal_moves_for_knight_at_square(board_t *board, int pos, int colour, check_info_t info) {
     //display_check_info(info);
     if(get_bit(pos,info.pinned_rays)) {
@@ -1214,6 +1260,25 @@ U64 get_legal_moves_for_king_at_sqaure(board_t *board, int pos, int colour) {
     return legal_moves& ~(generate_attack_maps_unfiltered(board,!(colour))) & ~(real_attack_map_unfiltered);
 }
 
+U64 handle_pinned_pawn_moves(board_t * board,int pos, U64 possible_moves, int colour, check_info_t info) {
+    int pin_direction = get_direction(find_msb(board->turn ? (board->WHITE & board->KINGS) : (board->BLACK & board->KINGS)),pos);
+
+    if(abs(pin_direction)==1) {
+        return 0ULL;
+    } else if(abs(pin_direction)==2) {
+        possible_moves &= (info.pinned_rays&~(board->turn ? board->WHITE : board->BLACK));
+        return possible_moves;
+    } else if(abs(pin_direction)==3) {
+        int diagonal_dir = diagonal_direction(find_msb(board->turn ? (board->WHITE & board->KINGS) : (board->BLACK & board->KINGS)),pos);
+        U64 diagonal_mask = get_diagonal_mask(pos,diagonal_dir==1||diagonal_dir==4);
+        possible_moves &= (diagonal_mask & info.pinned_rays);
+        
+        return possible_moves;
+    }
+
+    return possible_moves;
+}
+
 U64 get_legal_moves_for_pawn_at_sqaure(board_t * board,int pos, int colour, check_info_t info) {
     // get the possible moves for the pawn
     
@@ -1280,32 +1345,8 @@ U64 get_legal_moves_for_pawn_at_sqaure(board_t * board,int pos, int colour, chec
 
     int direction_to_king = get_direction(find_msb(board->turn ? (board->WHITE & board->KINGS) : (board->BLACK & board->KINGS)),pos);
     if(get_bit(pos,info.pinned_pieces)) {
-        if(abs(direction_to_king)!=1) {
-            possible_moves_2 &= info.pinned_rays;
-            if(abs(direction)==2) {
-                //And a vertical mask
-                possible_moves_2 &= 0x0101010101010101 << get_file(pos);
-                int direction = colour ? 1: -1;
-                int one_ahead = coordinates_to_number(get_rank(pos)+direction,get_file(file));
-                U64 colour_board = colour ? board->WHITE : board->BLACK;
-                U64 opponent_board = colour ? board->BLACK : board->WHITE;
-                if(get_bit(one_ahead, info.pinned_rays&opponent_board)) {
-                    possible_moves_2 = clear_bit(one_ahead, possible_moves_2);
-                }
-                if((rank==1&&colour)||(rank==6&&!colour)) {
-                    int two_ahead = coordinates_to_number(get_rank(pos)+(2*direction),get_file(file));
-                    if(get_bit(two_ahead, info.pinned_rays&opponent_board)) {
-                        possible_moves_2 = clear_bit(two_ahead, possible_moves_2);
-                    }
-                }
-            } else if(abs(direction)==3) {
-                // Check the direction between the pieces and see if we are moving in the direction of the pinned ray
-                // if we are then we can accept that move, otherwise reject it.
-            }
-        } else {
-            possible_moves_2 = 0ULL;
-        }
         
+        possible_moves_2 &= handle_pinned_pawn_moves(board,pos,possible_moves,colour, info);
         
     }
     if(info.in_check==1) {
@@ -1317,62 +1358,9 @@ U64 get_legal_moves_for_pawn_at_sqaure(board_t * board,int pos, int colour, chec
         legal_moves_2 = possible_moves_2;
     }
     
-    int msb_pos = find_msb(possible_moves);
-    while(possible_moves !=0) {
-    U64 original_pawns = board->PAWNS;
-    U64 original_white = board->WHITE;
-    U64 original_black = board->BLACK;
-
-    board->PAWNS = clear_bit(pos, board->PAWNS);
-    board->PAWNS = set_bit(msb_pos, board->PAWNS, 1);
-    if (colour) {
-        board->WHITE = clear_bit(pos, board->WHITE);
-        board->WHITE = set_bit(msb_pos, board->WHITE, 1);
-        if (msb_pos == board->enPassantsq && board->enPassantsq != -1) {
-            int captured_pos = msb_pos - 8; // Black pawn one rank below
-            board->BLACK = clear_bit(captured_pos, board->BLACK);
-            board->PAWNS = clear_bit(captured_pos, board->PAWNS);
-        } else if (piece_on_square(board, msb_pos, 0)) {
-            board->BLACK = clear_bit(msb_pos, board->BLACK);
-        }
-    } else {
-        board->BLACK = clear_bit(pos, board->BLACK);
-        board->BLACK = set_bit(msb_pos, board->BLACK, 1);
-        if (msb_pos == board->enPassantsq && board->enPassantsq != -1) {
-            int captured_pos = msb_pos + 8; // White pawn one rank above
-            board->WHITE = clear_bit(captured_pos, board->WHITE);
-            board->PAWNS = clear_bit(captured_pos, board->PAWNS);
-        } else if (piece_on_square(board, msb_pos, 1)) {
-            board->WHITE = clear_bit(msb_pos, board->WHITE);
-        }
-    }
-
-    if (in_check(board, colour) != 1) {
-        legal_moves = set_bit(msb_pos, legal_moves, 1);
-    }
-    possible_moves = clear_bit(msb_pos, possible_moves);
-    msb_pos = find_msb(possible_moves);
-    board->PAWNS = original_pawns;
-    board->WHITE = original_white;
-    board->BLACK = original_black;
-}
-    if(legal_moves!=legal_moves_2) {
-        printf("Discrepancy found in pawn legal moves calculation!\n");
-        printf("Legal Moves 1:\n");
-        display_bitBoard(legal_moves);
-        printf("Legal Moves 2:\n");
-        display_bitBoard(legal_moves_2);
-        display_board(board);
-        display_check_info(info);
-        printf("En passant sq: %d\n",board->enPassantsq);
-        printf("En passant pinned: %d\n",info.en_passant_pinned[0]);
-        printf("En passant pinned square: %d\n",info.en_passant_pinned_squares[0]);
-        printf("En passant pinned: %d\n",info.en_passant_pinned[1]);
-        printf("En passant pinned square: %d\n",info.en_passant_pinned_squares[1]);
-        exit(1);
-    }
     
-    return legal_moves;
+    
+    return legal_moves_2;
 
 }
 

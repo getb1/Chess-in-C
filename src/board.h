@@ -147,4 +147,5 @@ int is_terminal(board_t * board);
 board_t * copy_board(board_t * original);
 check_info_t generate_check_info(board_t * board);
 void display_check_info(check_info_t info);
+U64 get_diagonal_mask(int square, int is_a1h8);
 #endif

@@ -19,13 +19,14 @@
     - 28/8/25 - 2,129,303 - removed some for loops
     - 29/8/25 - 2,692,067 - removed more for loops
     - 30/8/25 - 3,925,379 - removed more for loops
+    - 7/9/25  - 8,845,444 - optimised pawn move gen
 */
 // Isues to fix
 // - Legal move gen with check info
 
 
 #define BOARD_SIZE 64
-#define START "4k2r/rpp2ppp/1b2n1bN/nPPpP3/BB6/q4N2/Pp1P2PP/R2Q1RK1 w k d6 0 10"
+#define START "r3k2r/pppp1ppp/1b3n1N/nP5/BBPnb3/7q/Pp1P2PP/R2Q1R1K w KQkq b3 0 1"
 
 int main() {
     printf("Starting Chess Engine...\n");
@@ -37,7 +38,7 @@ int main() {
     display_board(board);
     check_info_t info = generate_check_info(board);
     //generate_rook_blocker_bitboards(board);
-    display_bitBoard(get_legal_moves_for_pawn_at_sqaure(board,35,1,info));
+    display_bitBoard(get_legal_moves_for_pawn_at_sqaure(board,9,1,info));
 
     //test(board);
     
