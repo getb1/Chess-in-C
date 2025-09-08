@@ -6,6 +6,7 @@
 #include "board.h"
 #include "misc.h"
 #include "magic_numbers.h"
+#include "search.h"
 
 #define lsb(x) __builtin_ctzll(x)
 
@@ -104,26 +105,25 @@ char get_piece_at_square(board_t * board, int square) {
 
 void display_board(board_t * board) {
     printf("\n");
-    for(int i=0;i<17;++i) {
-        printf("-");
-    }
+    
     
     for(int i=7;i>=0;--i) {
-        printf("\n|");
+        printf("\n|-------------------------------|\n|");
 
         for(int j=7;j>=0;--j) {
             char piece = get_piece_at_square(board,coordinates_to_number(i,j));
             
-            printf("%c|",piece);
+            printf(" %c |",piece);
         }
         printf(" %d",i+1);
     }
-    printf("\n");
-    for(int i=0;i<17;++i) {
+    printf("\n|");
+    for(int i=0;i<31;++i) {
         printf("-");
     }
-    printf("\n a b c d e f g h");
+    printf("|\n  a   b   c   d   e   f   g   h");
     printf("\n");
+    printf("The score is :%d\n",evaluate_position(board));
 }
 
 int turn_to_int(char turn) {
@@ -1873,6 +1873,7 @@ move_t * get_legal_move_side(board_t * board, int colour, move_t * legal_moves) 
             legal_moves[move_count].to = to;
             legal_moves[move_count].piece = piece;
             legal_moves[move_count].colour = colour;
+            legal_moves[move_count].capturedPiece = get_piece_at_square(board,to);
             
             if(piece=='P'||piece=='p') {
                 if((to<8&&!(colour))||(to>55&&colour)) {
@@ -1941,11 +1942,20 @@ int is_terminal(board_t * board) {
 }
 // Board Functions End Here
 
+char int_to_rank(int sq) {
+    char ranks[] = "abcdefgh";
+    return ranks[get_rank(sq)];
+}
+char int_to_file(int sq) {
+    char files[] = "12345678";
+    
+    return files[get_file(sq)];
+}
 
 void play() {
     board_t * board = init_board();
     board_stack_t*  stack = c_stack();
-    
+    char files[] = "hgfedcba";
     while(!(is_terminal(board))) {
         display_board(board);
        
@@ -1956,10 +1966,15 @@ void play() {
             if(moves[i].from==0&&moves[i].to==0) {
                 break;
             }
-
-            printf("%d From: %d To: %d PIece:%c Capture %c\n", i+1,moves[i].from, moves[i].to,moves[i].piece,moves[i].capturedPiece);
-
-
+        
+            
+            printf("%d: %c%d -> %c%d", i,
+                   files[get_file(moves[i].from)], 1 + (get_rank(moves[i].from)),
+                   files[get_file(moves[i].to)], 1 + (get_rank(moves[i].to)));
+            if (moves[i].promotedPiece != '.') {
+                printf("=%c", moves[i].promotedPiece);
+            }
+            printf("\n");
 
         }
         int m;
@@ -1967,8 +1982,11 @@ void play() {
         
         make_move(board,&moves[m],stack);
         memset(moves,0,sizeof(moves));
+        move_t move = find_best_move_multi_thread(board,7,6);
+        make_move(board, &move, stack);
         
     }
+    display_board(board);
 }
 
 void move_test() {

@@ -26,7 +26,10 @@
 
 
 #define BOARD_SIZE 64
-#define START "r3k2r/pppp1ppp/1b3n1N/nP5/BBPnb3/7q/Pp1P2PP/R2Q1R1K w KQkq b3 0 1"
+#define START "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+
+
+
 
 int main() {
     printf("Starting Chess Engine...\n");
@@ -34,13 +37,9 @@ int main() {
     //Magic bitboard test
     board_t * board = init_from_FEN(fen);
     board_stack_t * stack = c_stack();
-    move_t moves[300];
-    display_board(board);
-    check_info_t info = generate_check_info(board);
-    //generate_rook_blocker_bitboards(board);
-    display_bitBoard(get_legal_moves_for_pawn_at_sqaure(board,9,1,info));
 
-    //test(board);
+    // Add this line at the placeholder:
+   play();
     
     return 0;
 }

@@ -17,4 +17,5 @@ void p(board_t * board, int depth);
 void perft_divide(board_t *board, int depth);
 void compare_boards(board_t *board1, board_t *board2);
 int perft_multi_threaded(board_t * board, int depth, int threads, int verbose);
+board_t * full_copy_board(board_t * original);
 #endif
